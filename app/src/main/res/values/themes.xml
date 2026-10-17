@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="MyCodexThemeLightBase" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/mycodex_light_background</item>
+        <item name="android:colorBackground">@color/mycodex_light_background</item>
+        <item name="android:textColorPrimary">@color/mycodex_light_on_background</item>
+        <item name="android:textColorSecondary">@color/mycodex_light_on_surface_variant</item>
+        <item name="android:colorAccent">@color/mycodex_light_primary</item>
+        <item name="android:colorControlActivated">@color/mycodex_light_primary</item>
+        <item name="android:colorControlNormal">@color/mycodex_light_on_surface_variant</item>
+        <item name="android:colorControlHighlight">@color/mycodex_light_primary</item>
+        <item name="android:statusBarColor">@color/mycodex_transparent</item>
+        <item name="android:navigationBarColor">@color/mycodex_transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="MyCodexThemeDarkBase" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/mycodex_dark_background</item>
+        <item name="android:colorBackground">@color/mycodex_dark_background</item>
+        <item name="android:textColorPrimary">@color/mycodex_dark_on_background</item>
+        <item name="android:textColorSecondary">@color/mycodex_dark_on_surface_variant</item>
+        <item name="android:colorAccent">@color/mycodex_dark_primary</item>
+        <item name="android:colorControlActivated">@color/mycodex_dark_primary</item>
+        <item name="android:colorControlNormal">@color/mycodex_dark_on_surface_variant</item>
+        <item name="android:colorControlHighlight">@color/mycodex_dark_primary</item>
+        <item name="android:statusBarColor">@color/mycodex_transparent</item>
+        <item name="android:navigationBarColor">@color/mycodex_transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.MyCodex.Light" parent="@style/MyCodexThemeLightBase" />
+    <style name="Theme.MyCodex.Dark" parent="@style/MyCodexThemeDarkBase" />
+    <style name="Theme.MyCodex" parent="@style/MyCodexThemeLightBase" />
+</resources>

@@ -1,0 +1,5 @@
+# Use a FileProvider handoff to the user-selected package installer
+
+MyCodex Android will hand each Verified Update Package to Android with an implicit `ACTION_VIEW` intent, the APK MIME type, and a temporary read-only content URI from a dedicated non-exported FileProvider. The provider exposes only `cache/updates/`; the intent does not name a package or component, so Android can use the package installer selected by the user or platform.
+
+This supersedes the direct `PackageInstaller.Session` decision. Device validation on Xiaomi HyperOS showed that committing a session launched Xiaomi's system package installer directly and bypassed the third-party installer that correctly handles APKs opened by QQ and WeChat. The new handoff preserves MyCodex's integrity, identity, compatibility, version, and signing checks before any URI is shared. MyCodex does not infer installation success from the handoff: returning without a version change retains the Verified Update Package for an explicit retry.

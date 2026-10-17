@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mycodex_light_primary">#245EA8</color>
+    <color name="mycodex_light_on_background">#171A1F</color>
+    <color name="mycodex_light_on_surface_variant">#5E6573</color>
+    <color name="mycodex_light_background">#F7F8FA</color>
+    <color name="mycodex_dark_primary">#A8C8FF</color>
+    <color name="mycodex_dark_on_background">#E7E8EE</color>
+    <color name="mycodex_dark_on_surface_variant">#B8BECA</color>
+    <color name="mycodex_dark_background">#101114</color>
+    <color name="mycodex_transparent">#00000000</color>
+</resources>

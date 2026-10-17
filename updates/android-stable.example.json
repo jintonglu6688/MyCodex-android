@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "channel": "stable",
+  "generatedAt": "2026-08-07T00:00:00Z",
+  "packageBaseUrl": "https://api.gitcode.com/api/v5/repos/gcw_SpGZ48lW/mycodex-updates/releases/android-v1.1.0-c2/attach_files/",
+  "app": {
+    "applicationId": "com.mycodex.mobile",
+    "versionCode": 2,
+    "versionName": "1.1.0",
+    "minimumAndroidApi": 26,
+    "releaseDate": "2026-08-07",
+    "releaseNotes": {
+      "zh-CN": "示例中文更新说明，不代表当前已发布版本。",
+      "en-US": "Example only; this is not a published release."
+    },
+    "asset": {
+      "url": "MyCodex-Android-v1.1.0-c2.apk/download",
+      "fileName": "MyCodex-Android-v1.1.0-c2.apk",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 1
+    }
+  }
+}

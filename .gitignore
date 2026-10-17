@@ -1,0 +1,46 @@
+# Gradle and Android build outputs
+.gradle/
+.kotlin/
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Local configuration
+local.properties
+*.local.properties
+
+# Signing and secrets
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+app/signing/
+signing.7z
+
+# Generated artifacts
+/artifacts/
+*.apk
+*.aab
+*.ap_
+*.dex
+/app-*.png
+
+# Kotlin/Java
+*.class
+
+# Logs
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+*.swo
+

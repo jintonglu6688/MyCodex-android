@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="accessibility_action_archive_workspace" type="id" />
+    <item name="accessibility_action_delete_workspace" type="id" />
+    <item name="accessibility_action_archive_session" type="id" />
+    <item name="accessibility_action_delete_session" type="id" />
+    <item name="accessibility_action_open_subagents" type="id" />
+    <item name="accessibility_action_rename_session" type="id" />
+    <item name="accessibility_action_copy_message" type="id" />
+    <item name="accessibility_action_fork_from_turn" type="id" />
+    <item name="accessibility_action_derive_from_turn" type="id" />
+    <item name="accessibility_action_rollback_before_turn" type="id" />
+    <item name="accessibility_action_read_full_message" type="id" />
+    <item name="tag_native_text_watcher" type="id" />
+    <item name="tag_native_focus_generation" type="id" />
+</resources>

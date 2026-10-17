@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MyCodex.Light" parent="@style/MyCodexThemeLightBase">
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    <style name="Theme.MyCodex.Dark" parent="@style/MyCodexThemeDarkBase">
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
