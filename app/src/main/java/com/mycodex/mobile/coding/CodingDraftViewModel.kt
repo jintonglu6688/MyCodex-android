@@ -15,7 +15,6 @@ class CodingDraftViewModel : ViewModel() {
     var attachments by mutableStateOf<List<CodingInputAttachment>>(emptyList())
     var sessionCreateTitle by mutableStateOf("")
     var forkTitle by mutableStateOf("")
-    var deriveTitle by mutableStateOf("")
 
     fun bindConversation(conversation: String) {
         if (boundConversation != null && boundConversation != conversation) {
@@ -30,7 +29,6 @@ class CodingDraftViewModel : ViewModel() {
         .put("text", text)
         .put("sessionCreateTitle", sessionCreateTitle)
         .put("forkTitle", forkTitle)
-        .put("deriveTitle", deriveTitle)
         .put("uncertainSend", uncertainSend)
         .put("attachments", JSONArray().apply {
             attachments.forEach { item -> put(JSONObject()
@@ -50,7 +48,6 @@ class CodingDraftViewModel : ViewModel() {
         text = snapshot.optString("text")
         sessionCreateTitle = snapshot.optString("sessionCreateTitle")
         forkTitle = snapshot.optString("forkTitle")
-        deriveTitle = snapshot.optString("deriveTitle")
         uncertainSend = snapshot.optBoolean("uncertainSend")
         val items = snapshot.optJSONArray("attachments") ?: JSONArray()
         attachments = (0 until items.length()).map { index ->
@@ -84,7 +81,6 @@ class CodingDraftViewModel : ViewModel() {
 
     fun clearThreadTitles() {
         forkTitle = ""
-        deriveTitle = ""
     }
 
     fun clearAll() {

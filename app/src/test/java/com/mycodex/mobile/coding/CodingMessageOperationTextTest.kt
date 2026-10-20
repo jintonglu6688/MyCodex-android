@@ -5,19 +5,28 @@ import org.junit.Test
 
 class CodingMessageOperationTextTest {
     @Test
-    fun rollbackSummaryForLatestTurn() {
+    fun threadOperationFailureExplainsUnsupportedCommand() {
         assertEquals(
-            "将删除第 4 轮内容。此操作会修改当前会话历史。",
-            rollbackSummaryText(turnIndex = 4, rollbackAffectedTurns = 1),
+            "分叉失败：Windows 端不支持此操作，请先更新 Windows 版 MyCodex。",
+            threadOperationFailureText("分叉", "unsupported_command"),
         )
     }
 
     @Test
-    fun rollbackSummaryForEarlierTurn() {
+    fun threadOperationFailureExplainsUnavailableAndBusy() {
         assertEquals(
-            "将删除第 2 轮和之后 2 轮内容。此操作会修改当前会话历史。",
-            rollbackSummaryText(turnIndex = 2, rollbackAffectedTurns = 3),
+            "完整分叉失败：Windows 端当前无法执行此操作。",
+            threadOperationFailureText("完整分叉", "operation_not_available"),
         )
+        assertEquals(
+            "压缩上下文失败：会话正在处理其他请求，请稍后重试。",
+            threadOperationFailureText("压缩上下文", "session_busy"),
+        )
+    }
+
+    @Test
+    fun threadOperationFailureKeepsUnknownErrorCode() {
+        assertEquals("恢复默认失败：timeout", threadOperationFailureText("恢复默认", "timeout"))
     }
 
     @Test

@@ -166,46 +166,6 @@ class CodingRemoteRepository(
         return sendThreadOperation("coding.session.fork", payload)
     }
 
-    suspend fun deriveSession(
-        sessionId: String,
-        title: String,
-        workspaceId: String,
-        turnId: String?,
-        createWorktree: Boolean,
-        switchToCreatedSession: Boolean,
-    ): CodingSessionThreadOperationResult {
-        val submittedTitle = title.trim()
-        if (sessionId.isBlank() || submittedTitle.isBlank() || workspaceId.isBlank()) {
-            return CodingSessionThreadOperationResult(CodingSessionOperationState.Error, errorCode = "invalid_input")
-        }
-
-        val payload = JSONObject()
-            .put("sessionId", sessionId)
-            .put("mode", if (turnId.isNullOrBlank()) "full" else "fromTurn")
-            .put("title", submittedTitle)
-            .put("workspaceId", workspaceId)
-            .put("createWorktree", createWorktree)
-            .put("switchToCreatedSession", switchToCreatedSession)
-        if (!turnId.isNullOrBlank()) {
-            payload.put("turnId", turnId)
-        }
-
-        return sendThreadOperation("coding.session.derive", payload)
-    }
-
-    suspend fun rollbackSession(sessionId: String, turnId: String): CodingSessionThreadOperationResult {
-        if (sessionId.isBlank() || turnId.isBlank()) {
-            return CodingSessionThreadOperationResult(CodingSessionOperationState.Error, errorCode = "invalid_input")
-        }
-
-        return sendThreadOperation(
-            commandType = "coding.session.rollback",
-            payload = JSONObject()
-                .put("sessionId", sessionId)
-                .put("turnId", turnId),
-        )
-    }
-
     suspend fun compactSession(sessionId: String): CodingSessionThreadOperationResult {
         if (sessionId.isBlank()) {
             return CodingSessionThreadOperationResult(CodingSessionOperationState.Error, errorCode = "invalid_input")
@@ -971,8 +931,6 @@ class CodingRemoteRepository(
             action = optionalString("action"),
             mode = optionalString("mode"),
             turnId = optionalString("turnId"),
-            trimTurnsAfterTurn = optInt("trimTurnsAfterTurn", 0),
-            rolledBackTurns = optInt("rolledBackTurns", 0),
             accepted = optBoolean("accepted", false),
             createdSession = createdSessionObject?.toSession(),
             switchToCreatedSession = optBoolean("switchToCreatedSession", false),
@@ -984,15 +942,12 @@ class CodingRemoteRepository(
         return CodingMessageActions(
             copy = this?.optBoolean("copy", content.isNotBlank()) ?: content.isNotBlank(),
             forkFromTurn = this?.optBoolean("forkFromTurn", false) ?: false,
-            deriveFromTurn = this?.optBoolean("deriveFromTurn", false) ?: false,
-            rollbackBeforeTurn = this?.optBoolean("rollbackBeforeTurn", false) ?: false,
         )
     }
 
     private fun JSONObject?.toMessageOperationPreview(): CodingMessageOperationPreview {
         return CodingMessageOperationPreview(
             trimTurnsAfterTurn = this?.optInt("trimTurnsAfterTurn", 0) ?: 0,
-            rollbackAffectedTurns = this?.optInt("rollbackAffectedTurns", 0) ?: 0,
         )
     }
 

@@ -62,7 +62,7 @@ class TransientDraftSourceContractTest {
     }
 
     @Test
-    fun unsubmittedSessionAndDeriveTitlesNeverEnterSaveableState() {
+    fun unsubmittedSessionAndForkTitlesNeverEnterSaveableState() {
         val app = readProjectFile("src/main/java/com/mycodex/mobile/MyCodexApp.kt")
         listOf(
             "codingSessionCreateTitleText",
@@ -75,7 +75,6 @@ class TransientDraftSourceContractTest {
         assertTrue(app.contains("codingTransient.sessionCreateTitle"))
         assertTrue(app.contains("officeTransient.sessionCreateTitle"))
         assertTrue(app.contains("codingTransient.forkTitle"))
-        assertTrue(app.contains("codingTransient.deriveTitle"))
     }
 
     private fun readProjectFile(relativePath: String): String {

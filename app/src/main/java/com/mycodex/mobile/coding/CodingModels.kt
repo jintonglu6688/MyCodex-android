@@ -110,8 +110,6 @@ data class CodingSessionThreadOperationResult(
     val action: String? = null,
     val mode: String? = null,
     val turnId: String? = null,
-    val trimTurnsAfterTurn: Int = 0,
-    val rolledBackTurns: Int = 0,
     val accepted: Boolean = false,
     val createdSession: CodingSession? = null,
     val switchToCreatedSession: Boolean = false,
@@ -308,7 +306,6 @@ enum class CodingSessionBranchKind {
     Mainline,
     Fork,
     Review,
-    Derived,
 }
 
 data class CodingMessage(
@@ -360,13 +357,10 @@ data class CodingMessageContentResult(
 data class CodingMessageActions(
     val copy: Boolean = false,
     val forkFromTurn: Boolean = false,
-    val deriveFromTurn: Boolean = false,
-    val rollbackBeforeTurn: Boolean = false,
 )
 
 data class CodingMessageOperationPreview(
     val trimTurnsAfterTurn: Int = 0,
-    val rollbackAffectedTurns: Int = 0,
 )
 
 const val CollapsedMessageMaxLines = 6
@@ -417,12 +411,14 @@ fun CodingMessageRole.displayName(): String {
     }
 }
 
-fun rollbackSummaryText(turnIndex: Int, rollbackAffectedTurns: Int): String {
-    return if (rollbackAffectedTurns <= 1) {
-        "将删除第 $turnIndex 轮内容。此操作会修改当前会话历史。"
-    } else {
-        "将删除第 $turnIndex 轮和之后 ${rollbackAffectedTurns - 1} 轮内容。此操作会修改当前会话历史。"
+fun threadOperationFailureText(operationName: String, errorCode: String): String {
+    val reason = when (errorCode) {
+        "unsupported_command" -> "Windows 端不支持此操作，请先更新 Windows 版 MyCodex。"
+        "operation_not_available" -> "Windows 端当前无法执行此操作。"
+        "session_busy" -> "会话正在处理其他请求，请稍后重试。"
+        else -> errorCode
     }
+    return "${operationName}失败：$reason"
 }
 
 fun turnTrimSummaryText(turnIndex: Int, trimTurnsAfterTurn: Int, targetName: String): String {
@@ -484,7 +480,6 @@ fun CodingSessionBranchKind.displayName(): String {
         CodingSessionBranchKind.Mainline -> "主线"
         CodingSessionBranchKind.Fork -> "分叉"
         CodingSessionBranchKind.Review -> "审核"
-        CodingSessionBranchKind.Derived -> "派生"
     }
 }
 
@@ -532,7 +527,6 @@ fun String?.toCodingSessionBranchKind(): CodingSessionBranchKind {
     return when (this?.trim()?.lowercase()) {
         "fork" -> CodingSessionBranchKind.Fork
         "review" -> CodingSessionBranchKind.Review
-        "derived" -> CodingSessionBranchKind.Derived
         else -> CodingSessionBranchKind.Mainline
     }
 }

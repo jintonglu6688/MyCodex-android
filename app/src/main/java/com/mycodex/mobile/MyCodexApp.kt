@@ -95,7 +95,9 @@ import com.mycodex.mobile.coding.RemotePlanExecutionUiState
 import com.mycodex.mobile.coding.RemoteToolInputController
 import com.mycodex.mobile.coding.RemoteToolInputDialog
 import com.mycodex.mobile.coding.RemoteToolInputUiState
+import com.mycodex.mobile.coding.ThreadOperationErrorDialog
 import com.mycodex.mobile.coding.copyAllMessagesText
+import com.mycodex.mobile.coding.threadOperationFailureText
 import com.mycodex.mobile.devices.AddDevicePage
 import com.mycodex.mobile.devices.DeviceBinding
 import com.mycodex.mobile.devices.DeviceDetailPage
@@ -173,11 +175,9 @@ internal fun MyCodexApp(
     var codingThreadOperationInProgress by remember { mutableStateOf(false) }
     var codingPlanModeEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var codingPlanModeToggleInProgress by remember { mutableStateOf(false) }
-    var codingKnownWorkspaces by remember { mutableStateOf<List<CodingWorkspace>>(emptyList()) }
+    var codingThreadOperationErrorText by remember { mutableStateOf<String?>(null) }
     var codingFullForkDialogVisible by rememberSaveable { mutableStateOf(false) }
-    var codingFullDeriveDialogVisible by rememberSaveable { mutableStateOf(false) }
     var codingCompactDialogVisible by rememberSaveable { mutableStateOf(false) }
-    var codingFullDeriveWorkspaceId by rememberSaveable { mutableStateOf<String?>(null) }
     var officeWorkspaceId by navigation::officeWorkspaceId
     var officeWorkspaceTitle by navigation::officeWorkspaceTitle
     var officeSessionId by navigation::officeSessionId
@@ -261,14 +261,12 @@ internal fun MyCodexApp(
         if (switching) activeScreen = AppScreen.Main.name
         codingChatMessages = emptyList()
         officeChatMessages = emptyList()
-        codingKnownWorkspaces = emptyList()
-        codingFullDeriveWorkspaceId = null
+        codingThreadOperationErrorText = null
         codingPlanModeEnabled = null
         officePlanModeEnabled = null
         codingPlanModeToggleInProgress = false
         officePlanModeToggleInProgress = false
         codingFullForkDialogVisible = false
-        codingFullDeriveDialogVisible = false
         codingCompactDialogVisible = false
         codingSessionCreateDialogVisible = false
         officeSessionCreateDialogVisible = false
@@ -409,7 +407,6 @@ internal fun MyCodexApp(
         !codingSessionCreateDialogVisible &&
         !officeSessionCreateDialogVisible &&
         !codingFullForkDialogVisible &&
-        !codingFullDeriveDialogVisible &&
         !codingCompactDialogVisible
     SideEffect {
         updateController.setPromptAllowed(updatePromptAllowed)
@@ -777,13 +774,6 @@ internal fun MyCodexApp(
         codingFullForkDialogVisible = true
     }
 
-    fun showFullDeriveDialog() {
-        codingTransient.deriveTitle = "${codingSessionTitle ?: codingSessionId ?: "会话"} 派生"
-        codingFullDeriveWorkspaceId = codingWorkspaceId?.takeIf { it.isNotBlank() }
-            ?: codingKnownWorkspaces.firstOrNull()?.id
-        codingFullDeriveDialogVisible = true
-    }
-
     fun runFullFork(titleText: String) {
         val sessionId = codingSessionId
         val submittedTitle = titleText.trim()
@@ -793,6 +783,7 @@ internal fun MyCodexApp(
 
         codingFullForkDialogVisible = false
         codingTransient.forkTitle = ""
+        codingThreadOperationErrorText = null
         appScope.launch {
             codingThreadOperationInProgress = true
             val result = codingRepository.forkSession(
@@ -802,57 +793,15 @@ internal fun MyCodexApp(
                 switchToCreatedSession = true,
             )
             codingThreadOperationInProgress = false
-            if (result.state == CodingSessionOperationState.Completed) {
-                codingSessionListReloadToken += 1
-                if (result.switchToCreatedSession && result.createdSession != null) {
-                    openCreatedCodingSession(result.createdSession)
-                }
+            if (result.state != CodingSessionOperationState.Completed) {
+                codingThreadOperationErrorText =
+                    threadOperationFailureText("完整分叉", result.errorCode ?: result.state.name.lowercase())
+                return@launch
             }
-        }
-    }
 
-    fun deriveWorkspaceChoices(): List<CodingWorkspace> {
-        val currentWorkspaceId = codingWorkspaceId?.takeIf { it.isNotBlank() }
-        val known = codingKnownWorkspaces.filter { it.id.isNotBlank() }
-        if (currentWorkspaceId.isNullOrBlank() || known.any { it.id == currentWorkspaceId }) {
-            return known
-        }
-
-        return listOf(
-            CodingWorkspace(
-                id = currentWorkspaceId,
-                name = codingWorkspaceTitle?.takeIf { it.isNotBlank() } ?: "当前工作区",
-                path = "",
-                lastSessionId = null,
-            ),
-        ) + known
-    }
-
-    fun runFullDerive(titleText: String, targetWorkspaceId: String?) {
-        val sessionId = codingSessionId
-        val submittedTitle = titleText.trim()
-        if (sessionId.isNullOrBlank() || targetWorkspaceId.isNullOrBlank() || submittedTitle.isBlank() || codingThreadOperationInProgress) {
-            return
-        }
-
-        codingFullDeriveDialogVisible = false
-        codingTransient.deriveTitle = ""
-        appScope.launch {
-            codingThreadOperationInProgress = true
-            val result = codingRepository.deriveSession(
-                sessionId = sessionId,
-                title = submittedTitle,
-                workspaceId = targetWorkspaceId,
-                turnId = null,
-                createWorktree = false,
-                switchToCreatedSession = true,
-            )
-            codingThreadOperationInProgress = false
-            if (result.state == CodingSessionOperationState.Completed) {
-                codingSessionListReloadToken += 1
-                if (result.switchToCreatedSession && result.createdSession != null) {
-                    openCreatedCodingSession(result.createdSession)
-                }
+            codingSessionListReloadToken += 1
+            if (result.switchToCreatedSession && result.createdSession != null) {
+                openCreatedCodingSession(result.createdSession)
             }
         }
     }
@@ -864,10 +813,15 @@ internal fun MyCodexApp(
         }
 
         codingCompactDialogVisible = false
+        codingThreadOperationErrorText = null
         appScope.launch {
             codingThreadOperationInProgress = true
-            codingRepository.compactSession(sessionId)
+            val result = codingRepository.compactSession(sessionId)
             codingThreadOperationInProgress = false
+            if (result.state != CodingSessionOperationState.Completed) {
+                codingThreadOperationErrorText =
+                    threadOperationFailureText("压缩上下文", result.errorCode ?: result.state.name.lowercase())
+            }
         }
     }
 
@@ -877,9 +831,10 @@ internal fun MyCodexApp(
             return
         }
 
+        codingThreadOperationErrorText = null
         appScope.launch {
             codingThreadOperationInProgress = true
-            codingRepository.updateSessionSettings(
+            val result = codingRepository.updateSessionSettings(
                 CodingSessionSettingsUpdate(
                     sessionId = sessionId,
                     modelId = null,
@@ -888,6 +843,10 @@ internal fun MyCodexApp(
                 ),
             )
             codingThreadOperationInProgress = false
+            if (result.state != CodingSessionSettingsUpdateState.Completed) {
+                codingThreadOperationErrorText =
+                    threadOperationFailureText("恢复默认", result.errorCode ?: result.state.name.lowercase())
+            }
         }
     }
 
@@ -1051,14 +1010,6 @@ internal fun MyCodexApp(
                                         showFullForkDialog()
                                     },
                                     enabled = !codingThreadOperationInProgress,
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("完整派生") },
-                                    onClick = {
-                                        codingChatMenuExpanded = false
-                                        showFullDeriveDialog()
-                                    },
-                                    enabled = !codingThreadOperationInProgress && !codingWorkspaceId.isNullOrBlank(),
                                 )
                                 DropdownMenuItem(
                                     text = { Text("压缩上下文") },
@@ -1259,7 +1210,6 @@ internal fun MyCodexApp(
                         deviceId = currentDevice?.id,
                         sessionTitle = codingSessionTitle ?: sessionId,
                         workspaceId = codingWorkspaceId,
-                        deriveTargetWorkspaces = deriveWorkspaceChoices(),
                         repository = codingRepository,
                         anchorStore = codingMessageAnchorStore,
                         contentPadding = innerPadding,
@@ -1403,14 +1353,10 @@ internal fun MyCodexApp(
                     codingRestoreFocusTarget = null
                     officeRestoreFocusTarget = null
                 },
-                onCodingWorkspacesChanged = { codingKnownWorkspaces = it },
                 onOpenCodingWorkspace = { workspace: CodingWorkspace ->
                     if (codingWorkspaceId != workspace.id) codingTransient.clearAll()
                     codingWorkspaceId = workspace.id
                     codingWorkspaceTitle = workspace.name
-                    if (codingKnownWorkspaces.none { it.id == workspace.id }) {
-                        codingKnownWorkspaces = codingKnownWorkspaces + workspace
-                    }
                     codingSessionCreateStatusText = null
                     codingSessionCreateInProgress = false
                     codingSessionCreateDialogVisible = false
@@ -1608,70 +1554,6 @@ internal fun MyCodexApp(
         )
     }
 
-    if (codingFullDeriveDialogVisible) {
-        val titleValid = codingTransient.deriveTitle.trim().isNotEmpty()
-        val workspaceChoices = deriveWorkspaceChoices()
-        val selectedWorkspaceId = codingFullDeriveWorkspaceId?.takeIf { selectedId ->
-            workspaceChoices.any { it.id == selectedId }
-        } ?: workspaceChoices.firstOrNull()?.id
-        AlertDialog(
-            onDismissRequest = {
-                if (!codingThreadOperationInProgress) {
-                    codingFullDeriveDialogVisible = false
-                    codingTransient.deriveTitle = ""
-                }
-            },
-            title = { Text("完整派生") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("将从当前完整会话历史创建派生。")
-                    OutlinedTextField(
-                        value = codingTransient.deriveTitle,
-                        onValueChange = { codingTransient.deriveTitle = it },
-                        enabled = !codingThreadOperationInProgress,
-                        label = { Text("标题") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("目标工作区")
-                    if (workspaceChoices.isEmpty()) {
-                        Text("没有可用工作区。")
-                    } else {
-                        workspaceChoices.forEach { workspace ->
-                            DeriveWorkspaceChoiceRow(
-                                workspace = workspace,
-                                selected = workspace.id == selectedWorkspaceId,
-                                enabled = !codingThreadOperationInProgress,
-                                onClick = { codingFullDeriveWorkspaceId = workspace.id },
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        runFullDerive(codingTransient.deriveTitle, selectedWorkspaceId)
-                    },
-                    enabled = !codingThreadOperationInProgress && titleValid && !selectedWorkspaceId.isNullOrBlank(),
-                ) {
-                    Text("创建")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        codingFullDeriveDialogVisible = false
-                        codingTransient.deriveTitle = ""
-                    },
-                    enabled = !codingThreadOperationInProgress,
-                ) {
-                    Text("取消")
-                }
-            },
-        )
-    }
-
     if (codingCompactDialogVisible) {
         AlertDialog(
             onDismissRequest = {
@@ -1698,6 +1580,10 @@ internal fun MyCodexApp(
                 }
             },
         )
+    }
+
+    codingThreadOperationErrorText?.let { errorText ->
+        ThreadOperationErrorDialog(text = errorText, onDismiss = { codingThreadOperationErrorText = null })
     }
 
     UpdateToastHost(
@@ -1738,37 +1624,6 @@ internal fun MyCodexApp(
             onCancel = { remoteToolInputController?.cancel() },
         )
     }
-}
-
-@Composable
-private fun DeriveWorkspaceChoiceRow(
-    workspace: CodingWorkspace,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val label = if (selected) {
-        "${workspace.name}，已选中"
-    } else {
-        "${workspace.name}，未选中"
-    }
-    NativeAccessibleActionRow(
-        title = label,
-        body = workspace.path,
-        testTag = "coding_full_derive_workspace_${workspace.id}",
-        restoreFocus = false,
-        onFocusRestored = {},
-        onClick = {
-            if (enabled) {
-                onClick()
-            }
-        },
-        onLongClick = {},
-        accessibilityActions = emptyList(),
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        contentDescription = if (workspace.path.isBlank()) label else "$label，${workspace.path}",
-    )
 }
 
 @Composable
@@ -2027,7 +1882,6 @@ private fun MainTabContent(
     officeRestoreFocusTarget: String?,
     restoreFocusTarget: String?,
     onFocusRestored: () -> Unit,
-    onCodingWorkspacesChanged: (List<CodingWorkspace>) -> Unit,
     onOpenCodingWorkspace: (CodingWorkspace) -> Unit,
     onOfficeWorkspaceResolved: (CodingWorkspace?) -> Unit,
     onOpenOfficeSession: (CodingSession) -> Unit,
@@ -2051,7 +1905,6 @@ private fun MainTabContent(
             listState = codingWorkspaceListState,
             restoreFocusTarget = codingRestoreFocusTarget,
             onFocusRestored = onFocusRestored,
-            onWorkspacesChanged = onCodingWorkspacesChanged,
             onOpenWorkspace = onOpenCodingWorkspace,
             contentPadding = contentPadding,
         )

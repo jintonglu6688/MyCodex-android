@@ -77,7 +77,6 @@ fun CodingWorkspaceListPage(
     restoreFocusTarget: String?,
     onFocusRestored: () -> Unit,
     onOpenWorkspace: (CodingWorkspace) -> Unit,
-    onWorkspacesChanged: (List<CodingWorkspace>) -> Unit = {},
     externalStatusText: String? = null,
     reloadToken: Int = 0,
     contentPadding: PaddingValues,
@@ -113,9 +112,6 @@ fun CodingWorkspaceListPage(
         loading = true
         val loaded = repository.loadWorkspaces()
         result = loaded
-        if (loaded.state == CodingLoadState.Loaded) {
-            onWorkspacesChanged(loaded.items)
-        }
         loading = false
         return loaded
     }
@@ -1105,7 +1101,6 @@ fun CodingMessageListPage(
     deviceId: String?,
     sessionTitle: String,
     workspaceId: String? = null,
-    deriveTargetWorkspaces: List<CodingWorkspace> = emptyList(),
     repository: CodingRemoteRepository,
     anchorStore: CodingMessageAnchorStore,
     contentPadding: PaddingValues,
@@ -1133,11 +1128,8 @@ fun CodingMessageListPage(
     var operationInProgress by remember(sessionId) { mutableStateOf(false) }
     var messagePendingAction by remember(sessionId) { mutableStateOf<CodingMessage?>(null) }
     var forkMessage by remember(sessionId) { mutableStateOf<CodingMessage?>(null) }
-    var deriveMessage by remember(sessionId) { mutableStateOf<CodingMessage?>(null) }
-    var rollbackMessage by remember(sessionId) { mutableStateOf<CodingMessage?>(null) }
     var forkTitleText by remember(sessionId) { mutableStateOf("") }
-    var deriveTitleText by remember(sessionId) { mutableStateOf("") }
-    var deriveTargetWorkspaceId by remember(sessionId) { mutableStateOf<String?>(workspaceId) }
+    var operationErrorText by remember(sessionId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val selectionGeneration = remember(repository) {
         (context.applicationContext as com.mycodex.mobile.MyCodexApplication).deviceSelection.state.value.generation
@@ -1255,30 +1247,6 @@ fun CodingMessageListPage(
         forkTitleText = "${sessionTitle} 分叉"
     }
 
-    fun startDeriveFromTurn(message: CodingMessage) {
-        deriveMessage = message
-        deriveTitleText = "${sessionTitle} 派生"
-        deriveTargetWorkspaceId = workspaceId?.takeIf { it.isNotBlank() }
-            ?: deriveTargetWorkspaces.firstOrNull()?.id
-    }
-
-    fun availableDeriveWorkspaces(): List<CodingWorkspace> {
-        val currentWorkspaceId = workspaceId?.takeIf { it.isNotBlank() }
-        val known = deriveTargetWorkspaces.filter { it.id.isNotBlank() }
-        if (currentWorkspaceId.isNullOrBlank() || known.any { it.id == currentWorkspaceId }) {
-            return known
-        }
-
-        return listOf(
-            CodingWorkspace(
-                id = currentWorkspaceId,
-                name = "当前工作区",
-                path = "",
-                lastSessionId = null,
-            ),
-        ) + known
-    }
-
     fun runForkFromTurn(message: CodingMessage, title: String) {
         val turnId = message.turnId
         val submittedTitle = title.trim()
@@ -1296,52 +1264,14 @@ fun CodingMessageListPage(
                 switchToCreatedSession = true,
             )
             operationInProgress = false
-            if (result.state == CodingSessionOperationState.Completed) {
-                onSessionsChanged()
-                if (result.switchToCreatedSession && result.createdSession != null) {
-                    onOpenCreatedSession(result.createdSession)
-                }
+            if (result.state != CodingSessionOperationState.Completed) {
+                operationErrorText = threadOperationFailureText("分叉", result.errorCode ?: result.state.name.lowercase())
+                return@launch
             }
-        }
-    }
 
-    fun runDeriveFromTurn(message: CodingMessage, title: String, targetWorkspaceId: String?) {
-        val turnId = message.turnId
-        val submittedTitle = title.trim()
-        if (turnId.isNullOrBlank() || submittedTitle.isBlank() || targetWorkspaceId.isNullOrBlank()) {
-            return
-        }
-
-        deriveMessage = null
-        scope.launch {
-            operationInProgress = true
-            val result = repository.deriveSession(
-                sessionId = sessionId,
-                title = submittedTitle,
-                workspaceId = targetWorkspaceId,
-                turnId = turnId,
-                createWorktree = false,
-                switchToCreatedSession = true,
-            )
-            operationInProgress = false
-            if (result.state == CodingSessionOperationState.Completed) {
-                onSessionsChanged()
-                if (result.switchToCreatedSession && result.createdSession != null) {
-                    onOpenCreatedSession(result.createdSession)
-                }
-            }
-        }
-    }
-
-    fun runRollbackFromTurn(message: CodingMessage) {
-        val turnId = message.turnId ?: return
-        rollbackMessage = null
-        scope.launch {
-            operationInProgress = true
-            val result = repository.rollbackSession(sessionId, turnId)
-            operationInProgress = false
-            if (result.state == CodingSessionOperationState.Completed) {
-                controller.reload()
+            onSessionsChanged()
+            if (result.switchToCreatedSession && result.createdSession != null) {
+                onOpenCreatedSession(result.createdSession)
             }
         }
     }
@@ -1462,8 +1392,6 @@ fun CodingMessageListPage(
             onCopyMessage = { copyMessage(it) },
             onMessageMenu = { messagePendingAction = it },
             onForkFromTurn = { startForkFromTurn(it) },
-            onDeriveFromTurn = { startDeriveFromTurn(it) },
-            onRollbackFromTurn = { rollbackMessage = it },
             onReadFullMessage = { completeMessage = it },
             onPagingFocusRestored = controller::onPagingFocusRestored,
             onLoadOlder = controller::loadOlder,
@@ -1569,30 +1497,6 @@ fun CodingMessageListPage(
                             Text("从本轮分叉")
                         }
                     }
-                    if (mode.supportsThreadOperations && message.actions.deriveFromTurn && !message.turnId.isNullOrBlank()) {
-                        TextButton(
-                            onClick = {
-                                messagePendingAction = null
-                                startDeriveFromTurn(message)
-                            },
-                            enabled = !operationInProgress && !workspaceId.isNullOrBlank(),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("从本轮派生")
-                        }
-                    }
-                    if (mode.supportsThreadOperations && message.actions.rollbackBeforeTurn && !message.turnId.isNullOrBlank()) {
-                        TextButton(
-                            onClick = {
-                                messagePendingAction = null
-                                rollbackMessage = message
-                            },
-                            enabled = !operationInProgress,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("回滚到本轮之前")
-                        }
-                    }
                 }
             },
             confirmButton = {
@@ -1647,93 +1551,23 @@ fun CodingMessageListPage(
         )
     }
 
-    deriveMessage?.let { message ->
-        val titleValid = deriveTitleText.trim().isNotEmpty()
-        val workspaceChoices = availableDeriveWorkspaces()
-        val selectedWorkspaceId = deriveTargetWorkspaceId?.takeIf { selectedId ->
-            workspaceChoices.any { it.id == selectedId }
-        } ?: workspaceChoices.firstOrNull()?.id
-        AlertDialog(
-            onDismissRequest = {
-                if (!operationInProgress) {
-                    deriveMessage = null
-                }
-            },
-            title = { Text("从本轮派生") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(turnTrimSummaryText(message.turnIndex, message.operationPreview.trimTurnsAfterTurn, "派生"))
-                    OutlinedTextField(
-                        value = deriveTitleText,
-                        onValueChange = { deriveTitleText = it },
-                        label = { Text("标题") },
-                        enabled = !operationInProgress,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("目标工作区")
-                    if (workspaceChoices.isEmpty()) {
-                        Text("没有可用工作区。")
-                    } else {
-                        workspaceChoices.forEach { workspace ->
-                            DeriveWorkspaceChoiceRow(
-                                workspace = workspace,
-                                selected = workspace.id == selectedWorkspaceId,
-                                enabled = !operationInProgress,
-                                onClick = { deriveTargetWorkspaceId = workspace.id },
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { runDeriveFromTurn(message, deriveTitleText, selectedWorkspaceId) },
-                    enabled = !operationInProgress && titleValid && !selectedWorkspaceId.isNullOrBlank(),
-                ) {
-                    Text("创建")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { deriveMessage = null },
-                    enabled = !operationInProgress,
-                ) {
-                    Text("取消")
-                }
-            },
-        )
+    operationErrorText?.let { errorText ->
+        ThreadOperationErrorDialog(text = errorText, onDismiss = { operationErrorText = null })
     }
+}
 
-    rollbackMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = {
-                if (!operationInProgress) {
-                    rollbackMessage = null
-                }
-            },
-            title = { Text("回滚到本轮之前") },
-            text = {
-                Text(rollbackSummaryText(message.turnIndex, message.operationPreview.rollbackAffectedTurns))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { runRollbackFromTurn(message) },
-                    enabled = !operationInProgress,
-                ) {
-                    Text("回滚")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { rollbackMessage = null },
-                    enabled = !operationInProgress,
-                ) {
-                    Text("取消")
-                }
-            },
-        )
-    }
+@Composable
+internal fun ThreadOperationErrorDialog(text: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("操作失败") },
+        text = { Text(text) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("确定")
+            }
+        },
+    )
 }
 
 @Composable
@@ -1944,36 +1778,6 @@ fun CodingSessionSettingsPage(
 }
 
 @Composable
-private fun DeriveWorkspaceChoiceRow(
-    workspace: CodingWorkspace,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val label = if (selected) {
-        "${workspace.name}，已选中"
-    } else {
-        "${workspace.name}，未选中"
-    }
-    NativeAccessibleActionRow(
-        title = label,
-        body = workspace.path,
-        testTag = "coding_derive_workspace_${workspace.id}",
-        restoreFocus = false,
-        onFocusRestored = {},
-        onClick = {
-            if (enabled) {
-                onClick()
-            }
-        },
-        accessibilityActions = emptyList(),
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        contentDescription = if (workspace.path.isBlank()) label else "$label，${workspace.path}",
-    )
-}
-
-@Composable
 internal fun DeleteLocalHistoryRow(
     checked: Boolean,
     enabled: Boolean,
@@ -2042,8 +1846,6 @@ private fun CodingMessageList(
     onCopyMessage: (CodingMessage) -> Unit,
     onMessageMenu: (CodingMessage) -> Unit,
     onForkFromTurn: (CodingMessage) -> Unit,
-    onDeriveFromTurn: (CodingMessage) -> Unit,
-    onRollbackFromTurn: (CodingMessage) -> Unit,
     onReadFullMessage: (CodingMessage) -> Unit,
     onPagingFocusRestored: (String) -> Unit,
     onLoadOlder: (CodingPagingViewportAnchor?) -> Unit,
@@ -2112,8 +1914,6 @@ private fun CodingMessageList(
                 onCopyMessage = onCopyMessage,
                 onMessageMenu = onMessageMenu,
                 onForkFromTurn = onForkFromTurn,
-                onDeriveFromTurn = onDeriveFromTurn,
-                onRollbackFromTurn = onRollbackFromTurn,
                 onReadFullMessage = onReadFullMessage,
                 onPagingFocusRestored = onPagingFocusRestored,
                 restoreFocus = state.restoreFocusMessageId == message.id,
@@ -2153,8 +1953,6 @@ private fun CodingMessageActionRow(
     onCopyMessage: (CodingMessage) -> Unit,
     onMessageMenu: (CodingMessage) -> Unit,
     onForkFromTurn: (CodingMessage) -> Unit,
-    onDeriveFromTurn: (CodingMessage) -> Unit,
-    onRollbackFromTurn: (CodingMessage) -> Unit,
     onReadFullMessage: (CodingMessage) -> Unit,
     onPagingFocusRestored: (String) -> Unit,
     restoreFocus: Boolean,
@@ -2220,8 +2018,6 @@ private fun CodingMessageActionRow(
                     supportsThreadOperations = supportsThreadOperations,
                     onCopyMessage = onCopyMessage,
                     onForkFromTurn = onForkFromTurn,
-                    onDeriveFromTurn = onDeriveFromTurn,
-                    onRollbackFromTurn = onRollbackFromTurn,
                     onReadFullMessage = onReadFullMessage,
                 )
             } else {
@@ -2243,8 +2039,6 @@ private fun buildMessageAccessibilityActions(
     supportsThreadOperations: Boolean,
     onCopyMessage: (CodingMessage) -> Unit,
     onForkFromTurn: (CodingMessage) -> Unit,
-    onDeriveFromTurn: (CodingMessage) -> Unit,
-    onRollbackFromTurn: (CodingMessage) -> Unit,
     onReadFullMessage: (CodingMessage) -> Unit,
 ): List<NativeAccessibleAction> {
     return buildList {
@@ -2276,30 +2070,6 @@ private fun buildMessageAccessibilityActions(
                     label = "从本轮分叉",
                     onAction = {
                         onForkFromTurn(message)
-                        true
-                    },
-                ),
-            )
-        }
-        if (supportsThreadOperations && message.actions.deriveFromTurn && !message.turnId.isNullOrBlank()) {
-            add(
-                NativeAccessibleAction(
-                    id = R.id.accessibility_action_derive_from_turn,
-                    label = "从本轮派生",
-                    onAction = {
-                        onDeriveFromTurn(message)
-                        true
-                    },
-                ),
-            )
-        }
-        if (supportsThreadOperations && message.actions.rollbackBeforeTurn && !message.turnId.isNullOrBlank()) {
-            add(
-                NativeAccessibleAction(
-                    id = R.id.accessibility_action_rollback_before_turn,
-                    label = "回滚到本轮之前",
-                    onAction = {
-                        onRollbackFromTurn(message)
                         true
                     },
                 ),

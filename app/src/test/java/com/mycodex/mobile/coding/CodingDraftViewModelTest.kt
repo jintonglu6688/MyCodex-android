@@ -26,14 +26,12 @@ class CodingDraftViewModelTest {
         draft.text = "private draft"
         draft.sessionCreateTitle = "new session"
         draft.forkTitle = "fork"
-        draft.deriveTitle = "derive"
 
         draft.bindConversation("coding:workspace-a:session-b")
 
         assertEquals("", draft.text)
         assertTrue(draft.attachments.isEmpty())
         assertEquals("", draft.forkTitle)
-        assertEquals("", draft.deriveTitle)
         assertEquals("new session", draft.sessionCreateTitle)
 
         draft.clearAll()

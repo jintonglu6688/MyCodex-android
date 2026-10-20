@@ -324,15 +324,12 @@ class CodingRemoteRepositoryTest {
                                         "actions",
                                         JSONObject()
                                             .put("copy", true)
-                                            .put("forkFromTurn", true)
-                                            .put("deriveFromTurn", true)
-                                            .put("rollbackBeforeTurn", true),
+                                            .put("forkFromTurn", true),
                                     )
                                     .put(
                                         "operationPreview",
                                         JSONObject()
-                                            .put("trimTurnsAfterTurn", 2)
-                                            .put("rollbackAffectedTurns", 3),
+                                            .put("trimTurnsAfterTurn", 2),
                                     ),
                             ),
                     ),
@@ -346,9 +343,9 @@ class CodingRemoteRepositoryTest {
         assertEquals("turn-2", message.turnId)
         assertEquals(2, message.turnIndex)
         assertEquals(4, message.turnCount)
+        assertTrue(message.actions.copy)
         assertTrue(message.actions.forkFromTurn)
         assertEquals(2, message.operationPreview.trimTurnsAfterTurn)
-        assertEquals(3, message.operationPreview.rollbackAffectedTurns)
     }
 
     @Test
@@ -378,27 +375,6 @@ class CodingRemoteRepositoryTest {
         assertEquals("turn-2", command.payload.getString("turnId"))
         assertEquals("Fork title", command.payload.getString("title"))
         assertEquals(true, command.payload.getBoolean("switchToCreatedSession"))
-    }
-
-    @Test
-    fun rollbackSessionSendsTurnPayload() = runTest {
-        val gateway = FakeRemoteCommandGateway(
-            RemoteEventPayload(
-                requestId = "request_rollback",
-                operationId = null,
-                eventType = "coding.session.thread.operation.result",
-                payload = JSONObject()
-                    .put("sessionId", "session-1")
-                    .put("rolledBackTurns", 3),
-            ),
-        )
-        val repository = CodingRemoteRepository(gateway)
-
-        repository.rollbackSession("session-1", "turn-2")
-
-        val command = gateway.lastCommand!!
-        assertEquals("coding.session.rollback", command.commandType)
-        assertEquals("turn-2", command.payload.getString("turnId"))
     }
 
     @Test
