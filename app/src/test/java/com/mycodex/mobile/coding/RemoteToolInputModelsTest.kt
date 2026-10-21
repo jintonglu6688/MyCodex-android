@@ -8,6 +8,24 @@ import org.junit.Test
 
 class RemoteToolInputModelsTest {
     @Test
+    fun toRemoteToolInputRequest_marksWindowsAsyncQuestionsAsIgnorable() {
+        val asyncRequest = JSONObject()
+            .put("requestId", "async:thread-1:item-1")
+            .put("kind", "async")
+            .put("questions", org.json.JSONArray().put(JSONObject().put("id", "async-1").put("question", "使用哪个数据库？")))
+            .toRemoteToolInputRequest()
+        val toolRequest = JSONObject()
+            .put("requestId", "input-1")
+            .put("questions", org.json.JSONArray().put(JSONObject().put("id", "choice").put("question", "请选择")))
+            .toRemoteToolInputRequest()
+
+        assertTrue(asyncRequest.isAsync)
+        assertEquals("忽略", asyncRequest.dismissActionLabel)
+        assertFalse(toolRequest.isAsync)
+        assertEquals("取消", toolRequest.dismissActionLabel)
+    }
+
+    @Test
     fun toRemoteToolInputRequest_parsesQuestionsAndOptions() {
         val payload = JSONObject(
             """

@@ -109,7 +109,7 @@ class RemoteToolInputController(
         scope.launch {
             mutableState.value = mutableState.value.copy(
                 canceling = true,
-                statusText = "正在取消。",
+                statusText = "正在${request.dismissActionLabel}。",
                 errorCode = null,
             )
             val result = canceler(request.requestId)
@@ -121,7 +121,7 @@ class RemoteToolInputController(
             val error = result.errorCode ?: result.state.name.lowercase()
             mutableState.value = mutableState.value.copy(
                 canceling = false,
-                statusText = "取消失败：$error",
+                statusText = "${request.dismissActionLabel}失败：$error",
                 errorCode = error,
             )
         }

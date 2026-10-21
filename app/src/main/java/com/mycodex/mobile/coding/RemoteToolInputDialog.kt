@@ -69,7 +69,7 @@ fun RemoteToolInputDialog(
         },
         dismissButton = {
             TextButton(onClick = onCancel, enabled = !state.submitting && !state.canceling) {
-                Text("取消")
+                Text(request.dismissActionLabel)
             }
         },
     )

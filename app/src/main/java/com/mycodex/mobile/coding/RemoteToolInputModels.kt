@@ -9,7 +9,12 @@ data class RemoteToolInputRequest(
     val headerText: String?,
     val detailsText: String?,
     val questions: List<RemoteToolInputQuestion>,
-)
+    /** Windows pending questions asked inside a reply; ignoring one only dismisses it on both devices. */
+    val isAsync: Boolean = false,
+) {
+    val dismissActionLabel: String
+        get() = if (isAsync) "忽略" else "取消"
+}
 
 data class RemoteToolInputQuestion(
     val id: String,
@@ -75,6 +80,7 @@ fun JSONObject.toRemoteToolInputRequest(): RemoteToolInputRequest {
         headerText = remoteOptionalString("headerText"),
         detailsText = remoteOptionalString("detailsText"),
         questions = questions,
+        isAsync = optString("kind") == "async",
     )
 }
 

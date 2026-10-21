@@ -53,6 +53,32 @@ class RemoteToolInputControllerTest {
         controller.stop()
     }
 
+    @Test
+    fun cancelAsyncQuestion_reportsIgnoreFailureAndKeepsRequest() = runTest {
+        val events = MutableSharedFlow<RemoteEventPayload>(extraBufferCapacity = 4)
+        var canceledRequestId: String? = null
+        val controller = RemoteToolInputController(
+            scope = this,
+            remoteEvents = events,
+            responder = { _, _ -> RemoteToolInputResponseResult(RemoteToolInputResponseState.Completed, completed = true) },
+            canceler = { requestId ->
+                canceledRequestId = requestId
+                RemoteToolInputResponseResult(RemoteToolInputResponseState.Error, errorCode = "operation_failed")
+            },
+        )
+
+        controller.start()
+        events.emit(toolInputRequested("async:thread-1:item-1", kind = "async"))
+        advanceUntilIdle()
+        controller.cancel()
+        advanceUntilIdle()
+
+        assertEquals("async:thread-1:item-1", canceledRequestId)
+        assertEquals("async:thread-1:item-1", controller.state.value.activeRequest?.requestId)
+        assertEquals("忽略失败：operation_failed", controller.state.value.statusText)
+        controller.stop()
+    }
+
     private fun TestScope.testController(events: MutableSharedFlow<RemoteEventPayload>): RemoteToolInputController {
         return RemoteToolInputController(
             scope = this,
@@ -62,13 +88,14 @@ class RemoteToolInputControllerTest {
         )
     }
 
-    private fun toolInputRequested(requestId: String): RemoteEventPayload {
+    private fun toolInputRequested(requestId: String, kind: String? = null): RemoteEventPayload {
         return RemoteEventPayload(
             requestId = requestId,
             operationId = null,
             eventType = "tool.input.requested",
             payload = JSONObject()
                 .put("requestId", requestId)
+                .apply { if (kind != null) put("kind", kind) }
                 .put("questions", JSONArray().put(JSONObject().put("id", "choice").put("question", "请选择"))),
         )
     }

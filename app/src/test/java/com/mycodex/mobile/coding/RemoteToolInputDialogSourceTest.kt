@@ -24,6 +24,7 @@ class RemoteToolInputDialogSourceTest {
         assertFalse(source.contains("question.description"))
         assertFalse(source.contains("listOfNotNull(option.label, option.description)"))
         assertTrue(source.contains("contentDescription = option.label"))
+        assertTrue(source.contains("Text(request.dismissActionLabel)"))
     }
 
     private fun readSource(vararg parts: String): String {
