@@ -48,6 +48,20 @@ class NotificationSoundModelsTest {
     }
 
     @Test
+    fun questionsShareTheApprovalCueAndSwitch() {
+        val event = event(
+            eventType = "tool.input.requested",
+            requestId = "async:thread-1:item-1",
+        )
+
+        assertEquals(
+            NotificationSoundCue.ApprovalRequested,
+            NotificationSoundEventPolicy.cueFor(event, NotificationSoundSettings()),
+        )
+        assertNull(NotificationSoundEventPolicy.cueFor(event, NotificationSoundSettings(approvalRequestedEnabled = false)))
+    }
+
+    @Test
     fun disabledCueIsNotSelected() {
         val event = event(
             eventType = "approval.requested",

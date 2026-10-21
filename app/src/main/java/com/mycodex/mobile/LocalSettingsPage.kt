@@ -98,7 +98,7 @@ internal fun LocalSettingsPage(
                 )
                 AppSettingsGroupDivider()
                 NotificationSoundSettingRow(
-                    title = "出现审批请求时播放音效",
+                    title = "收到审批或提问时播放音效",
                     enabled = notificationSoundSettings.approvalRequestedEnabled,
                     testTag = "local_sound_approval_requested",
                     onClick = {

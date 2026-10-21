@@ -21,7 +21,10 @@ internal object NotificationSoundEventPolicy {
         event: RemoteEventPayload,
         settings: NotificationSoundSettings,
     ): NotificationSoundCue? = when (event.eventType) {
-        "approval.requested" -> NotificationSoundCue.ApprovalRequested
+        // Approvals and questions share one cue and switch, matching the Windows client.
+        "approval.requested",
+        "tool.input.requested",
+        -> NotificationSoundCue.ApprovalRequested
             .takeIf { settings.approvalRequestedEnabled }
 
         "coding.message.completed",
