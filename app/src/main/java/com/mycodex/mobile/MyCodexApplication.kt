@@ -36,6 +36,8 @@ class MyCodexApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         MobileDiagnostics.initialize(this)
+        // Message reading positions are no longer remembered; drop what earlier versions saved.
+        deleteSharedPreferences("coding_message_anchors")
     }
 
     internal val deviceSelection by lazy {

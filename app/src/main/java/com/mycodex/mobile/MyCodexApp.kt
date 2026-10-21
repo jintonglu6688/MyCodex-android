@@ -71,7 +71,6 @@ import com.mycodex.mobile.account.UserCenterPage
 import com.mycodex.mobile.account.UserCenterRepository
 import com.mycodex.mobile.coding.CodingDraftViewModel
 import com.mycodex.mobile.coding.CodingMessageListPage
-import com.mycodex.mobile.coding.CodingMessageAnchorStore
 import com.mycodex.mobile.coding.CodingMessage
 import com.mycodex.mobile.coding.CodingRemoteMode
 import com.mycodex.mobile.coding.CodingRemoteRepository
@@ -224,9 +223,6 @@ internal fun MyCodexApp(
     }
     val userCenterRepository = remember(codingConnectionManager) {
         UserCenterRepository(codingConnectionManager)
-    }
-    val codingMessageAnchorStore = remember(context) {
-        CodingMessageAnchorStore(context)
     }
     val appScope = rememberCoroutineScope()
 
@@ -1211,7 +1207,6 @@ internal fun MyCodexApp(
                         sessionTitle = codingSessionTitle ?: sessionId,
                         workspaceId = codingWorkspaceId,
                         repository = codingRepository,
-                        anchorStore = codingMessageAnchorStore,
                         contentPadding = innerPadding,
                         onMessagesChanged = { codingChatMessages = it },
                         onSessionsChanged = { codingSessionListReloadToken += 1 },
@@ -1250,7 +1245,6 @@ internal fun MyCodexApp(
                         sessionTitle = officeSessionTitle ?: sessionId,
                         workspaceId = officeWorkspaceId,
                         repository = officeRepository,
-                        anchorStore = codingMessageAnchorStore,
                         contentPadding = innerPadding,
                         onMessagesChanged = { officeChatMessages = it },
                         onSessionsChanged = { officeSessionListReloadToken += 1 },

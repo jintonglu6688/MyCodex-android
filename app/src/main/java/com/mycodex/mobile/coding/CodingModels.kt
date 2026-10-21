@@ -379,20 +379,6 @@ fun messageExpansionLabel(expanded: Boolean): String {
     return if (expanded) "收起" else "展开全文"
 }
 
-data class CodingMessageAnchor(
-    val sessionId: String,
-    val messageId: String,
-    val scrollOffset: Int,
-    val wasAtBottom: Boolean,
-    val messageCount: Int,
-    val savedAtEpochMillis: Long,
-)
-
-data class CodingMessageRestoreTarget(
-    val messageIndex: Int,
-    val scrollOffset: Int,
-)
-
 enum class CodingMessageRole {
     User,
     Assistant,
@@ -561,19 +547,6 @@ fun CodingListResult<CodingMessage>.initialMessageListScrollIndex(): Int? {
     }
 
     return items.size
-}
-
-fun List<CodingMessage>.restoreIndexForAnchor(anchor: CodingMessageAnchor?): CodingMessageRestoreTarget? {
-    if (anchor == null || anchor.wasAtBottom) {
-        return null
-    }
-
-    val index = indexOfFirst { it.id == anchor.messageId }
-    if (index < 0) {
-        return null
-    }
-
-    return CodingMessageRestoreTarget(index, anchor.scrollOffset)
 }
 
 fun isNearMessageListBottom(lastVisibleMessageIndex: Int, messageCount: Int): Boolean {

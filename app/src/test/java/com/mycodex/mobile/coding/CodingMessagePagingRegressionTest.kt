@@ -6,11 +6,12 @@ import org.junit.Test
 import java.io.File
 
 class CodingMessagePagingRegressionTest {
-    @Test fun anchorSavingUsesStableItemKeysAndDisposeIsNotMessageCountDriven() {
+    @Test fun openingAlwaysStartsAtLatestWithoutPersistingReadingPosition() {
         val source = File("src/main/java/com/mycodex/mobile/coding/CodingScreens.kt").readText()
         assertTrue(source.contains("it.id == item.key"))
-        assertTrue(source.contains("DisposableEffect(controller)"))
-        assertFalse(source.contains("DisposableEffect(sessionId, state.messages.size"))
+        assertTrue(source.contains("messageId = state.messages.last().id"))
+        assertFalse(source.contains("anchorStore"))
+        assertFalse(File("src/main/java/com/mycodex/mobile/coding/CodingMessageAnchorStore.kt").exists())
     }
 
     @Test fun automaticTailLoadQueuesEventsAndDisablesBoundaryFocusRestore() {

@@ -14,7 +14,6 @@ class CodingConversationController(
     private val sessionId: String,
     private val repository: CodingConversationRepository,
     private val scope: CoroutineScope,
-    private val initialAnchor: CodingMessageAnchor? = null,
 ) {
     private val mutableState = MutableStateFlow(CodingConversationState())
     private var started = false
@@ -32,8 +31,9 @@ class CodingConversationController(
     private var olderCursor: String? = null
     private var newerCursor: String? = null
     private var historyRebuildAnchorId: String? = null
-    private var readingAnchorId: String? = initialAnchor?.messageId
-    private var readerAtBottom: Boolean = initialAnchor?.wasAtBottom ?: true
+    // Reading position for the open conversation only; every opening starts at the latest messages.
+    private var readingAnchorId: String? = null
+    private var readerAtBottom: Boolean = true
 
     val state: StateFlow<CodingConversationState> = mutableState.asStateFlow()
 
@@ -311,7 +311,7 @@ class CodingConversationController(
             errorCode = null,
         )
 
-        val anchor = historyRebuildAnchorId ?: initialAnchor?.takeIf { !it.wasAtBottom }?.messageId
+        val anchor = historyRebuildAnchorId
         var result = repository.loadMessagePage(sessionId, anchorMessageId = anchor)
         if (anchor != null && result.state == CodingLoadState.Loaded && !result.anchorFound) {
             result = repository.loadMessagePage(sessionId)

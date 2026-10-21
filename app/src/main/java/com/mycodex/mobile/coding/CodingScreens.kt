@@ -1102,7 +1102,6 @@ fun CodingMessageListPage(
     sessionTitle: String,
     workspaceId: String? = null,
     repository: CodingRemoteRepository,
-    anchorStore: CodingMessageAnchorStore,
     contentPadding: PaddingValues,
     onMessagesChanged: (List<CodingMessage>) -> Unit = {},
     onSessionsChanged: () -> Unit = {},
@@ -1134,10 +1133,8 @@ fun CodingMessageListPage(
     val selectionGeneration = remember(repository) {
         (context.applicationContext as com.mycodex.mobile.MyCodexApplication).deviceSelection.state.value.generation
     }
-    val anchorScope = "${deviceId.orEmpty()}:${mode.name}"
-    val restoredAnchor = remember(anchorScope, sessionId) { anchorStore.load(anchorScope, sessionId) }
-    val controller = remember(sessionId, repository, restoredAnchor) {
-        CodingConversationController(sessionId, repository, scope, restoredAnchor)
+    val controller = remember(sessionId, repository) {
+        CodingConversationController(sessionId, repository, scope)
     }
     val state by controller.state.collectAsState()
     var completeMessage by remember(sessionId) { mutableStateOf<CodingMessage?>(null) }
@@ -1276,7 +1273,8 @@ fun CodingMessageListPage(
         }
     }
 
-    fun saveCurrentAnchor() {
+    // Tracks where the reader is while this conversation stays open; nothing is persisted.
+    fun trackReadingPosition() {
         if (state.loadState != CodingLoadState.Loaded || state.messages.isEmpty()) {
             return
         }
@@ -1290,16 +1288,6 @@ fun CodingMessageListPage(
         val wasAtBottom = state.tailConnected && isNearMessageListBottom(lastVisibleMessageIndex, state.messages.size)
         controller.updateReadingAnchor(message.id)
         controller.updateReaderAtBottom(wasAtBottom)
-        anchorStore.save(anchorScope,
-            CodingMessageAnchor(
-                sessionId = sessionId,
-                messageId = message.id,
-                scrollOffset = visibleMessageItem.offset,
-                wasAtBottom = wasAtBottom,
-                messageCount = state.messages.size,
-                savedAtEpochMillis = System.currentTimeMillis(),
-            )
-        )
     }
 
     fun scrollToMessageListBottom() {
@@ -1323,34 +1311,17 @@ fun CodingMessageListPage(
 
     LaunchedEffect(sessionId, state.loadState, state.messages.size) {
         if (!didInitialScroll && state.loadState == CodingLoadState.Loaded && state.messages.isNotEmpty()) {
-            val anchor = restoredAnchor
-            val restoreTarget = state.messages.restoreIndexForAnchor(anchor)
-            if (restoreTarget != null) {
-                val targetIndex = CodingMessagePagingViewportRestore.resolveLazyListIndex(
-                    messages = state.messages,
-                    pagingSupported = state.pagingSupported,
-                    hasOlder = state.hasOlder,
-                    messageId = state.messages[restoreTarget.messageIndex].id,
-                ) ?: return@LaunchedEffect
-                listState.scrollToItem(targetIndex, restoreTarget.scrollOffset)
-            } else {
-                val latestIndex = CodingMessagePagingViewportRestore.resolveLazyListIndex(
-                    messages = state.messages,
-                    pagingSupported = state.pagingSupported,
-                    hasOlder = state.hasOlder,
-                    messageId = state.messages.last().id,
-                ) ?: return@LaunchedEffect
-                listState.scrollToItem(latestIndex)
-            }
+            // Every opening shows the latest screen; reading positions are not remembered.
+            val latestIndex = CodingMessagePagingViewportRestore.resolveLazyListIndex(
+                messages = state.messages,
+                pagingSupported = state.pagingSupported,
+                hasOlder = state.hasOlder,
+                messageId = state.messages.last().id,
+            ) ?: return@LaunchedEffect
+            listState.scrollToItem(latestIndex)
             didInitialScroll = true
             hasNewMessagesAwayFromBottom = false
             return@LaunchedEffect
-        }
-    }
-
-    DisposableEffect(controller) {
-        onDispose {
-            saveCurrentAnchor()
         }
     }
 
@@ -1358,7 +1329,7 @@ fun CodingMessageListPage(
         snapshotFlow { listState.isScrollInProgress }
             .collect { inProgress ->
                 if (!inProgress && didInitialScroll) {
-                    saveCurrentAnchor()
+                    trackReadingPosition()
                 }
             }
     }
