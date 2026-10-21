@@ -60,5 +60,5 @@ internal fun deviceListFocusIndex(devices: List<ManagedDevice>, restoreFocusTarg
     val deviceId = restoreFocusTarget.takeIf { it.startsWith("device_row:") }
         ?.substringAfter("device_row:")
     val index = devices.indexOfFirst { it.id == deviceId }
-    return if (index >= 0) index + 1 else devices.size.coerceAtLeast(1) + 1
+    return if (index >= 0) index else devices.size.coerceAtLeast(1)
 }

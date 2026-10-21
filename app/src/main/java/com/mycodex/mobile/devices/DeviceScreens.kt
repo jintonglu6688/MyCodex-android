@@ -87,21 +87,7 @@ fun DeviceManagementPage(
             .padding(contentPadding),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        item(key = "current_device") {
-            val currentDevice = snapshot.devices.firstOrNull { it.id == snapshot.currentDeviceId }
-            DeviceStatusPanel(
-                title = "当前连接",
-                body = currentDevice?.let {
-                    "${it.displayName}，${deviceConnectionPresentation(it, true, selectionState).summary}"
-                } ?: "尚未选择设备",
-            )
-            selectionState.statusText?.takeIf(String::isNotBlank)?.let { status ->
-                Spacer(Modifier.height(12.dp))
-                if (selectionState.switching) DeviceLoadingPanel(status) else
-                    DeviceStatusPanel("连接结果", status)
-            }
-            Spacer(Modifier.height(12.dp))
-        }
+        // Each row already states whether it is the current device and its connection; no summary header.
         if (snapshot.devices.isEmpty()) {
             item(key = "empty_devices") {
                 DeviceStatusPanel(

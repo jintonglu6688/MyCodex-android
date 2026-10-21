@@ -117,13 +117,13 @@ class DeviceConnectionPresentationTest {
     }
 
     @Test
-    fun returningFocusUsesHostIdAndAccountsForHeaderEmptyListAndDeletedRow() {
+    fun returningFocusUsesHostIdAndAccountsForEmptyListAndDeletedRow() {
         val devices = listOf(device("a"), device("b"))
 
-        assertEquals(2, deviceListFocusIndex(devices, "device_row:b"))
-        assertEquals(3, deviceListFocusIndex(devices, "device_row:deleted"))
-        assertEquals(3, deviceListFocusIndex(devices, "device_add_button"))
-        assertEquals(2, deviceListFocusIndex(emptyList(), "device_add_button"))
+        assertEquals(1, deviceListFocusIndex(devices, "device_row:b"))
+        assertEquals(2, deviceListFocusIndex(devices, "device_row:deleted"))
+        assertEquals(2, deviceListFocusIndex(devices, "device_add_button"))
+        assertEquals(1, deviceListFocusIndex(emptyList(), "device_add_button"))
     }
 
     private fun present(
