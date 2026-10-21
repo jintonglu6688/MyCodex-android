@@ -278,15 +278,18 @@ internal fun MyCodexApp(
     LaunchedEffect(Unit) {
         try {
             if (!codingTransient.workspaceRestored || !officeTransient.workspaceRestored) {
-                // SavedStateHandle data from an older version belongs only to its original selected host.
+                // A cold start keeps only this device's drafts; pages and list positions start from the default
+                // home. SavedStateHandle still brings the page back after the system, not the user, ends the process.
                 val hostId = currentDevice?.hostId
-                if (hostId != null && workspaceStateStore.load(hostId) != null) restoreWorkspace(hostId, false)
-                else {
-                    if (navigation.boundHostId != null && navigation.boundHostId != hostId) navigation.restoreWorkspace(null)
-                    navigation.boundHostId = hostId
-                    codingTransient.workspaceRestored = true
-                    officeTransient.workspaceRestored = true
+                hostId?.let(workspaceStateStore::load)?.let { saved ->
+                    codingTransient.restore(saved.optJSONObject("coding"))
+                    officeTransient.restore(saved.optJSONObject("office"))
                 }
+                // SavedStateHandle data from an older version belongs only to its original selected host.
+                if (navigation.boundHostId != null && navigation.boundHostId != hostId) navigation.restoreWorkspace(null)
+                navigation.boundHostId = hostId
+                codingTransient.workspaceRestored = true
+                officeTransient.workspaceRestored = true
             } else if (navigation.boundHostId != currentDevice?.hostId) restoreWorkspace(currentDevice?.hostId, true)
         } catch (_: Exception) {
             application.deviceSelection.reportError(currentDevice?.hostId, "无法读取此设备的草稿，原数据已保留。")
