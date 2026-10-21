@@ -47,9 +47,11 @@ class PendingInteractionSnapshotTest {
         assertEquals(1, published.size)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsNonInteractionEventsInSnapshot() {
-        pendingInteractionEvents(RemoteEventPayload("read", null, "interaction.pending.list.result",
-            JSONObject().put("events", JSONArray().put(JSONObject().put("eventType", "coding.message.accepted").put("payload", JSONObject())))))
+    @Test fun skipsUnknownEventTypesInSnapshotAndKeepsKnownOnes() {
+        val items = JSONArray()
+            .put(JSONObject().put("eventType", "coding.message.accepted").put("payload", JSONObject()))
+            .put(JSONObject().put("eventType", "approval.requested").put("requestId", "a").put("payload", JSONObject().put("requestId", "a")))
+        val result = pendingInteractionEvents(RemoteEventPayload("read", null, "interaction.pending.list.result", JSONObject().put("events", items)))!!
+        assertEquals(listOf("approval.requested"), result.map { it.eventType })
     }
 }

@@ -62,8 +62,12 @@ class RelayAuthenticationClient internal constructor(
             SUBJECT_DEVICE,
             binding.deviceId,
         )
-        val subjectSignature = signer(proofTranscript)
-        require(subjectSignature.size == RAW_SIGNATURE_SIZE)
+        val subjectSignature = try {
+            signer(proofTranscript).also { require(it.size == RAW_SIGNATURE_SIZE) }
+        } catch (ex: RuntimeException) {
+            // A missing or unusable device key cannot be retried into working; report it as an auth failure.
+            throw RelayAuthenticationException("device_identity_unavailable", ex)
+        }
         val ticketObject = post(
             binding,
             "/v1/auth/prove",

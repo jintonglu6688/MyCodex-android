@@ -82,6 +82,17 @@ class DeviceWorkspaceStateStoreTest {
         assertEquals("old", store.load("A")!!.getString("text"))
     }
 
+    @Test fun backgroundSaveUsesQueuedWriterAndRoundTrips() {
+        val values = mutableMapOf<String, String>()
+        val store = DeviceWorkspaceStateStore(
+            read = values::get,
+            write = { _, _ -> error("must not block") },
+            writeInBackground = { key, value -> values[key] = value },
+        )
+        store.saveInBackground("A", JSONObject().put("text", "typed"))
+        assertEquals("typed", store.load("A")!!.getString("text"))
+    }
+
     @Test fun malformedPersistedDataIsReportedAndNeverReplacedWithDefaults() {
         val store = DeviceWorkspaceStateStore({ "not-json" }, { _, _ -> error("must not write") })
         try { store.load("A"); fail("must fail") } catch (_: org.json.JSONException) {}

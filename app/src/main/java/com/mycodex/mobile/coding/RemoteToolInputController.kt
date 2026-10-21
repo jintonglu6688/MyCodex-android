@@ -52,6 +52,14 @@ class RemoteToolInputController(
         mutableState.value = RemoteToolInputUiState()
     }
 
+    /** Request ids shown or queued now; pass them to [retainPending] once the pending snapshot arrives. */
+    fun knownRequestIds(): Set<String> = seenRequestIds.toSet()
+
+    /** Drops requests known before a reconnect that the target no longer lists, keeping answers for ones still pending. */
+    fun retainPending(previouslyKnown: Set<String>, pending: Set<String>) {
+        previouslyKnown.filterNot { it in pending }.forEach(::completeRequest)
+    }
+
     fun updateAnswer(questionId: String, values: List<String>) {
         if (questionId.isBlank()) {
             return

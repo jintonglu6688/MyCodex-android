@@ -451,6 +451,78 @@ class CodingConversationControllerTest {
         assertEquals(1, repository.sendCount)
     }
 
+    @Test
+    fun olderPageKeepsTailCursorAndConnectionFromLatestPage() = runTest {
+        val first = CodingMessage("message_a", CodingMessageRole.Assistant, "first", null)
+        val second = CodingMessage("message_b", CodingMessageRole.Assistant, "second", null)
+        val latest = CodingMessage("message_c", CodingMessageRole.Assistant, "latest", null)
+        val repository = FakeCodingConversationRepository(initialMessages = emptyList()).apply {
+            pageResults = mutableListOf(
+                pagedResult(listOf(latest), olderCursor = "older-1", newerCursor = "tail-1", hasOlder = true),
+                pagedResult(listOf(first, second), newerCursor = "after-b", hasNewer = true, tailConnected = false),
+                pagedResult(emptyList(), newerCursor = "tail-2"),
+            )
+        }
+        val controller = CodingConversationController("session_a", repository, this)
+        controller.start()
+        advanceUntilIdle()
+
+        controller.loadOlder()
+        advanceUntilIdle()
+
+        val state = controller.state.value
+        assertEquals(listOf("message_a", "message_b", "message_c"), state.messages.map { it.id })
+        assertEquals(false, state.hasOlder)
+        assertEquals(false, state.hasNewer)
+        assertEquals(true, state.tailConnected)
+        assertEquals(false, state.hasNewMessagesAwayFromBottom)
+
+        repository.emitCurrentSessionUpdated()
+        advanceUntilIdle()
+
+        assertEquals("tail-1", repository.requestedAfterCursors.last())
+        controller.stop()
+    }
+
+    @Test
+    fun refreshWhileReadingHistoryRebuildsAroundReadingPosition() = runTest {
+        val first = CodingMessage("message_a", CodingMessageRole.Assistant, "first", null)
+        val repository = FakeCodingConversationRepository(initialMessages = listOf(first))
+        val controller = CodingConversationController("session_a", repository, this)
+        controller.start()
+        advanceUntilIdle()
+
+        controller.updateReadingAnchor("message_a")
+        controller.updateReaderAtBottom(false)
+        controller.reload()
+        advanceUntilIdle()
+        assertEquals("message_a", repository.requestedAnchors.last())
+
+        controller.updateReaderAtBottom(true)
+        controller.reload()
+        advanceUntilIdle()
+        assertEquals(null, repository.requestedAnchors.last())
+        controller.stop()
+    }
+
+    private fun pagedResult(
+        items: List<CodingMessage>,
+        olderCursor: String? = null,
+        newerCursor: String? = null,
+        hasOlder: Boolean = false,
+        hasNewer: Boolean = false,
+        tailConnected: Boolean = true,
+    ) = CodingMessagePageResult(
+        state = CodingLoadState.Loaded,
+        items = items,
+        olderCursor = olderCursor,
+        newerCursor = newerCursor,
+        hasOlder = hasOlder,
+        hasNewer = hasNewer,
+        tailConnected = tailConnected,
+        capabilityState = RemoteHostCapabilityState.Supported,
+    )
+
     private class FakeCodingConversationRepository(
         private val initialMessages: List<CodingMessage>,
         var refreshedMessages: List<CodingMessage> = initialMessages,
@@ -479,6 +551,12 @@ class CodingConversationControllerTest {
 
         var pageSnapshots: MutableList<List<CodingMessage>> = mutableListOf()
 
+        var pageResults: MutableList<CodingMessagePageResult>? = null
+
+        val requestedAfterCursors = mutableListOf<String?>()
+
+        val requestedAnchors = mutableListOf<String?>()
+
         var lastSendSessionId: String? = null
 
         var lastSendText: String? = null
@@ -504,6 +582,9 @@ class CodingConversationControllerTest {
             anchorMessageId: String?,
         ): CodingMessagePageResult {
             loadCount += 1
+            requestedAfterCursors += afterCursor
+            requestedAnchors += anchorMessageId
+            pageResults?.getOrNull(loadCount - 1)?.let { return it }
             if (failAfterCursorWithHistoryChanged && afterCursor != null) {
                 return CodingMessagePageResult(
                     state = CodingLoadState.Error,

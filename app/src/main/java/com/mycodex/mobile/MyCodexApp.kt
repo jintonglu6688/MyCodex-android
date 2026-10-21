@@ -226,13 +226,14 @@ internal fun MyCodexApp(
     }
     val appScope = rememberCoroutineScope()
 
-    fun saveCurrentWorkspace() {
+    fun saveCurrentWorkspace(durable: Boolean = true) {
         check(codingTransient.workspaceRestored && officeTransient.workspaceRestored) { "workspace_state_unavailable" }
         val hostId = navigation.boundHostId ?: run {
             check(currentDevice == null) { "workspace_state_unavailable" }
             return
         }
-        workspaceStateStore.save(hostId, JSONObject()
+        val save: (String, JSONObject) -> Unit = if (durable) workspaceStateStore::save else workspaceStateStore::saveInBackground
+        save(hostId, JSONObject()
             .put("coding", codingTransient.snapshot()).put("office", officeTransient.snapshot())
             .put("navigation", navigation.workspaceSnapshot())
             .put("codingWorkspaceIndex", codingWorkspaceListState.firstVisibleItemIndex)
@@ -301,7 +302,7 @@ internal fun MyCodexApp(
             .collectLatest {
                 delay(300)
                 if (!application.deviceSelection.state.value.switching && navigation.boundHostId == currentDevice?.hostId) {
-                    try { saveCurrentWorkspace() } catch (_: Exception) { diagnosticsShareStatus = "草稿保存失败，切换前请重试。" }
+                    try { saveCurrentWorkspace(durable = false) } catch (_: Exception) { diagnosticsShareStatus = "草稿保存失败，切换前请重试。" }
                 }
             }
     }
@@ -314,7 +315,7 @@ internal fun MyCodexApp(
                 application.deviceSelection.reportError(device.hostId, "无法读取此设备的草稿，原数据已保留。")
                 return@launch
             }
-            if (application.selectDevice(device, ::saveCurrentWorkspace)) {
+            if (application.selectDevice(device, { saveCurrentWorkspace() })) {
                 deviceSnapshot = deviceStore.load()
                 restoreWorkspace(device.hostId, true)
                 deviceRestoreFocusTarget = AppFocusTarget.deviceRow(device.id)
@@ -410,7 +411,7 @@ internal fun MyCodexApp(
 
     LaunchedEffect(Unit) {
         if (!selectionState.switching && !selectionState.connected && currentDevice != null && codingConnectionManager != null) {
-            appScope.launch { application.selectDevice(currentDevice, ::saveCurrentWorkspace) }
+            appScope.launch { application.selectDevice(currentDevice, { saveCurrentWorkspace() }) }
         }
     }
 
@@ -452,15 +453,21 @@ internal fun MyCodexApp(
         val hostId = currentDevice?.hostId ?: return@LaunchedEffect
         val generation = selectionState.generation
         if (!secureConnected || !selectionState.connected || selectionState.switching) return@LaunchedEffect
-        // A reconnect replaces cached interaction queues with the target's current pending requests.
-        remoteApprovalController?.stop()
+        // A reconnect reconciles cached interaction queues with the target's current pending requests,
+        // keeping a still-pending request and any answers already typed into it.
         remoteApprovalController?.start()
-        remoteToolInputController?.stop()
         remoteToolInputController?.start()
-        remotePlanExecutionController?.stop()
         remotePlanExecutionController?.start()
-        if (!manager.refreshPendingInteractions()) {
+        val knownApprovals = remoteApprovalController?.knownRequestIds().orEmpty()
+        val knownToolInputs = remoteToolInputController?.knownRequestIds().orEmpty()
+        val knownPlanExecutions = remotePlanExecutionController?.knownRequestIds().orEmpty()
+        val pending = manager.refreshPendingInteractions()
+        if (pending == null) {
             application.deviceSelection.reportError(hostId, "已连接，但待处理审批未能刷新，请重试连接。")
+        } else {
+            remoteApprovalController?.retainPending(knownApprovals, pending["approval.requested"].orEmpty())
+            remoteToolInputController?.retainPending(knownToolInputs, pending["tool.input.requested"].orEmpty())
+            remotePlanExecutionController?.retainPending(knownPlanExecutions, pending["plan.execution.requested"].orEmpty())
         }
         for ((repository, sessionId) in listOf(codingRepository to codingSessionId, officeRepository to officeSessionId)) {
             if (sessionId.isNullOrBlank()) continue

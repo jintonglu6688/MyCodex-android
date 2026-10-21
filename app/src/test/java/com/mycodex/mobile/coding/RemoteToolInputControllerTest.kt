@@ -79,6 +79,27 @@ class RemoteToolInputControllerTest {
         controller.stop()
     }
 
+    @Test
+    fun retainPendingKeepsAnswersForStillPendingRequestAndDropsStaleOnes() = runTest {
+        val events = MutableSharedFlow<RemoteEventPayload>(extraBufferCapacity = 4)
+        val controller = testController(events)
+        controller.start()
+        events.emit(toolInputRequested("input-1"))
+        events.emit(toolInputRequested("input-2"))
+        advanceUntilIdle()
+        controller.updateAnswer("choice", listOf("A"))
+
+        val known = controller.knownRequestIds()
+        controller.retainPending(known, setOf("input-1"))
+        assertEquals("input-1", controller.state.value.activeRequest?.requestId)
+        assertEquals(listOf("A"), controller.state.value.answers["choice"])
+        assertEquals(setOf("input-1"), controller.knownRequestIds())
+
+        controller.retainPending(controller.knownRequestIds(), emptySet())
+        assertNull(controller.state.value.activeRequest)
+        controller.stop()
+    }
+
     private fun TestScope.testController(events: MutableSharedFlow<RemoteEventPayload>): RemoteToolInputController {
         return RemoteToolInputController(
             scope = this,

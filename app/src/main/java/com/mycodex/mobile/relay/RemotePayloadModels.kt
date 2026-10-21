@@ -34,10 +34,11 @@ interface RemoteEventSource {
 internal fun pendingInteractionEvents(event: RemoteEventPayload?): List<RemoteEventPayload>? {
     if (event == null || event.errorCode != null || event.eventType != "interaction.pending.list.result") return null
     val items = event.payload.optJSONArray("events") ?: return null
-    return (0 until items.length()).map { index ->
+    return (0 until items.length()).mapNotNull { index ->
         val item = items.getJSONObject(index)
         val type = item.getString("eventType")
-        require(type in setOf("approval.requested", "tool.input.requested", "plan.execution.requested"))
+        // A newer Windows build may list interaction kinds this app does not handle yet; skip them.
+        if (type !in PendingInteractionRequestedTypes) return@mapNotNull null
         RemoteEventPayload(
             item.optString("requestId").takeIf { it.isNotBlank() },
             item.optString("operationId").takeIf { it.isNotBlank() },
@@ -46,6 +47,10 @@ internal fun pendingInteractionEvents(event: RemoteEventPayload?): List<RemoteEv
         )
     }
 }
+
+internal val PendingInteractionRequestedTypes = setOf("approval.requested", "tool.input.requested", "plan.execution.requested")
+
+internal fun RemoteEventPayload.interactionRequestId(): String = payload.optString("requestId").ifBlank { requestId.orEmpty() }
 
 /** Serializes live completions and snapshot replay; tombstones last only for one refresh. */
 internal class PendingInteractionReplay {
@@ -74,8 +79,7 @@ internal class PendingInteractionReplay {
         if (generation == token) { active = false; completed.clear() }
     }
 
-    private fun key(event: RemoteEventPayload): String = event.eventType.substringBeforeLast('.') + ":" +
-        event.payload.optString("requestId").ifBlank { event.requestId.orEmpty() }
+    private fun key(event: RemoteEventPayload): String = event.eventType.substringBeforeLast('.') + ":" + event.interactionRequestId()
 }
 
 internal object RelayRemoteEnvelopeFactory {

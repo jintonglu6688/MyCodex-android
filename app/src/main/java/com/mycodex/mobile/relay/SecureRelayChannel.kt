@@ -20,6 +20,7 @@ internal class SecureRelayChannel(
     private val signer: (ByteArray) -> ByteArray,
     private val sendText: (String) -> Boolean,
     private val onInvalid: (String) -> Unit = {},
+    private val onEstablished: () -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
     private val random: SecureRandom = SecureRandom(),
     private val keyPairGenerator: () -> KeyPair = {
@@ -70,7 +71,12 @@ internal class SecureRelayChannel(
             nonce = nonce,
             createdAt = now(),
         )
-        val signature = signer(SecureRemoteTranscript.sessionHello(hello))
+        val signature = try {
+            signer(SecureRemoteTranscript.sessionHello(hello))
+        } catch (_: RuntimeException) {
+            invalidateLocked("device_identity_unavailable")
+            return false
+        }
         sessionId = newSessionId
         ephemeralKeyPair = ephemeral
         clientNonce = nonce
@@ -167,6 +173,7 @@ internal class SecureRelayChannel(
         )
         require(MessageDigest.isEqual(expected, frame.confirmation))
         state = State.Established
+        onEstablished()
         return Inbound.Ignored
     }
 
@@ -261,8 +268,9 @@ internal object RemotePayloadCodec {
             operationId = (value.opt("operationId") as? String)?.takeIf { it.isNotBlank() },
             eventType = eventType,
             payload = payload,
+            // Only an error response carries its code in the payload; a result may have its own "code" field.
             errorCode = value.optString("errorCode").takeIf { it.isNotBlank() }
-                ?: payload.optString("code").takeIf { it.isNotBlank() },
+                ?: payload.optString("code").takeIf { eventType in ErrorResponseTypes && it.isNotBlank() },
         )
     }.getOrNull()
 
@@ -285,6 +293,8 @@ internal object RemotePayloadCodec {
             errorCode = value.optString("errorCode").takeIf { it.isNotBlank() },
         )
     }.getOrNull()
+
+    private val ErrorResponseTypes = setOf("remote.error", "system.error")
 
     private val EVENT_FIELD_SETS = setOf(
         setOf("schemaVersion", "payloadType", "requestId", "eventType", "payload"),

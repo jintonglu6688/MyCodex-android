@@ -112,6 +112,20 @@ class SecureRelayChannelTest {
         )
 
         assertEquals("write_lock_denied", response?.errorCode)
+        val remoteError = RemotePayloadCodec.response(
+            """{"schemaVersion":1,"payloadType":"remote.response","requestId":"request_demo","eventType":"remote.error","payload":{"code":"request_not_found"}}""".toByteArray(),
+        )
+        assertEquals("request_not_found", remoteError?.errorCode)
+    }
+
+    @Test
+    fun successResponseWithCodeFieldIsNotAnError() {
+        val response = RemotePayloadCodec.response(
+            """{"schemaVersion":1,"payloadType":"remote.response","requestId":"request_demo","eventType":"coding.thread.operation.result","payload":{"code":"compacted"}}""".toByteArray(),
+        )
+
+        assertEquals(null, response?.errorCode)
+        assertEquals("compacted", response?.payload?.optString("code"))
     }
 
     private fun binding(deviceSigning: KeyPair, deviceAgreement: KeyPair, hostSigning: KeyPair, hostAgreement: KeyPair) = DeviceBinding(

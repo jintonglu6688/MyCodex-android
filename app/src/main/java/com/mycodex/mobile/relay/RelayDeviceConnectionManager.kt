@@ -63,6 +63,7 @@ class RelayDeviceConnectionManager(
     @Volatile private var webSocket: WebSocket? = null
     @Volatile private var channel: SecureRelayChannel? = null
     @Volatile private var opening: CompletableDeferred<Boolean>? = null
+    @Volatile private var handshaking: CompletableDeferred<Boolean>? = null
     private val pendingReplay = PendingInteractionReplay()
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     // ponytail: unbounded ordered queue; apply transport backpressure if sustained events outpace the UI.
@@ -78,16 +79,17 @@ class RelayDeviceConnectionManager(
 
     override val remoteEvents: SharedFlow<RemoteEventPayload> = eventFlow.asSharedFlow()
 
-    suspend fun refreshPendingInteractions(): Boolean {
+    /** Replays the target's pending interactions; returns their request ids by requested event type, or null on failure. */
+    suspend fun refreshPendingInteractions(): Map<String, Set<String>>? {
         val token = pendingReplay.begin()
         try {
             val result = sendCommand(RemoteCommandPayload(commandType = "interaction.pending.list"))
-            val events = try { pendingInteractionEvents(result) } catch (_: RuntimeException) { null } ?: return false
+            val events = try { pendingInteractionEvents(result) } catch (_: RuntimeException) { null } ?: return null
             for (event in events) {
                 requireActiveSelection()
                 pendingReplay.replay(token, event) { orderedEvents.trySend(it) }
             }
-            return true
+            return events.groupBy({ it.eventType }, { it.interactionRequestId() }).mapValues { it.value.toSet() }
         } finally {
             pendingReplay.end(token)
         }
@@ -169,9 +171,13 @@ class RelayDeviceConnectionManager(
             )
             val transportDeadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(TransportTimeoutMillis)
             val opened = CompletableDeferred<Boolean>()
+            val handshake = CompletableDeferred<Boolean>()
             synchronized(generationState) {
                 requireActiveSelection()
-                generationState.activate(generation) { opening = opened }
+                generationState.activate(generation) {
+                    opening = opened
+                    handshaking = handshake
+                }
             }
             val created = try {
                 withTimeout(remainingMillis(transportDeadlineNanos)) {
@@ -183,7 +189,7 @@ class RelayDeviceConnectionManager(
                         .build()
                     synchronized(generationState) {
                         requireActiveSelection()
-                        relayClient.newWebSocket(request, listener(generation, opened)).also { webSocket = it }
+                        relayClient.newWebSocket(request, listener(generation, opened, handshake)).also { webSocket = it }
                     }
                 }
             } catch (error: CancellationException) {
@@ -194,15 +200,15 @@ class RelayDeviceConnectionManager(
                 MobileDiagnostics.warn("Remote", "authentication_failed generation=$generation code=${error.code}")
                 invalidateGeneration(generation, "authentication_failed")
                 return@withLock null
+            } catch (error: RuntimeException) {
+                MobileDiagnostics.warn("Remote", "connection_setup_failed generation=$generation", error)
+                invalidateGeneration(generation, "connection_setup_failed")
+                return@withLock null
             }
             val established = try {
                 withTimeout(remainingMillis(transportDeadlineNanos)) { opened.await() } &&
-                    withTimeout(HandshakeTimeoutMillis) {
-                        while (generationState.isCurrent(generation) && channel?.currentState() != SecureRelayChannel.State.Established) {
-                            kotlinx.coroutines.delay(10)
-                        }
-                        generationState.isCurrent(generation)
-                    }
+                    withTimeout(HandshakeTimeoutMillis) { handshake.await() } &&
+                    generationState.isCurrent(generation)
             } catch (error: CancellationException) {
                 created.cancel()
                 invalidateGeneration(generation, "cancelled")
@@ -222,7 +228,11 @@ class RelayDeviceConnectionManager(
         }
     }
 
-    private fun listener(generation: Long, opened: CompletableDeferred<Boolean>): WebSocketListener = object : WebSocketListener() {
+    private fun listener(
+        generation: Long,
+        opened: CompletableDeferred<Boolean>,
+        handshake: CompletableDeferred<Boolean>,
+    ): WebSocketListener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             MobileDiagnostics.info("Remote", "websocket_open generation=$generation http=${response.code}")
             val createdChannel = SecureRelayChannel(
@@ -230,6 +240,7 @@ class RelayDeviceConnectionManager(
                 signer = sessionSigner,
                 sendText = { text -> generationState.isCurrent(generation) && webSocket.send(text) },
                 onInvalid = { reason -> invalidateGeneration(generation, reason) },
+                onEstablished = { handshake.complete(generationState.isCurrent(generation)) },
             )
             val accepted = generationState.ifCurrent(generation) {
                 this@RelayDeviceConnectionManager.webSocket = webSocket
@@ -237,7 +248,13 @@ class RelayDeviceConnectionManager(
                 true
             } ?: false
             if (!accepted) { webSocket.cancel(); return }
-            if (!createdChannel.start()) {
+            val started = try {
+                createdChannel.start()
+            } catch (error: RuntimeException) {
+                MobileDiagnostics.warn("Remote", "hello_create_failed generation=$generation", error)
+                false
+            }
+            if (!started) {
                 invalidateGeneration(generation, "hello_send_failed")
                 return
             }
@@ -319,6 +336,8 @@ class RelayDeviceConnectionManager(
                 webSocket = null
                 opening?.complete(false)
                 opening = null
+                handshaking?.complete(false)
+                handshaking = null
                 channel = null
                 completePending(null)
             }

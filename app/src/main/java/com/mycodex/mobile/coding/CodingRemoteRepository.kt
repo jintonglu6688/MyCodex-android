@@ -54,9 +54,11 @@ class CodingRemoteRepository(
     private val gateway: RemoteCommandGateway?,
     private val eventSource: RemoteEventSource? = gateway as? RemoteEventSource,
     override val mode: CodingRemoteMode = CodingRemoteMode.Coding,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : CodingConversationRepository {
     override val remoteEvents: Flow<RemoteEventPayload> = eventSource?.remoteEvents ?: emptyFlow()
     private var capabilityState = RemoteHostCapabilityState.Unknown
+    private var capabilityRetryAtMillis = 0L
 
     suspend fun loadWorkspaces(): CodingListResult<CodingWorkspace> {
         val event = gateway?.sendCommand(
@@ -603,6 +605,7 @@ class CodingRemoteRepository(
 
     private suspend fun resolveCapability(): RemoteHostCapabilityState {
         if (capabilityState != RemoteHostCapabilityState.Unknown) return capabilityState
+        if (nowMillis() < capabilityRetryAtMillis) return capabilityState
         val event = gateway?.sendCommand(RemoteCommandPayload(commandType = "host.capabilities.get", timeoutMillis = 30_000L, keepConnectionOnTimeout = true))
             ?: return RemoteHostCapabilityState.Unknown
         capabilityState = when {
@@ -611,6 +614,8 @@ class CodingRemoteRepository(
             event.payload.optJSONArray("capabilities")?.let { values -> (0 until values.length()).any { values.optString(it) == "conversation.messages.pagination.v1" } } == true -> RemoteHostCapabilityState.Supported
             else -> RemoteHostCapabilityState.Unknown
         }
+        // A timed-out probe would otherwise delay every page load by the full timeout; retry it later instead.
+        if (event.errorCode == "request_timeout") capabilityRetryAtMillis = nowMillis() + CapabilityRetryDelayMillis
         return capabilityState
     }
 
@@ -979,3 +984,5 @@ class CodingRemoteRepository(
 
     private fun event(name: String): String = mode.event(name)
 }
+
+private const val CapabilityRetryDelayMillis = 60_000L

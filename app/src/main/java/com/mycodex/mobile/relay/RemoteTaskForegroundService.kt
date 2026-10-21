@@ -231,16 +231,26 @@ class RemoteTaskForegroundService : Service() {
         ) {
             val selection = (context.applicationContext as MyCodexApplication).deviceSelection
             if (!selection.isCurrent(hostId, generation)) return
-            ContextCompat.startForegroundService(
-                context,
-                intent(context, ACTION_START, sessionId, mode, hostId, generation)
-                    .putExtra(EXTRA_ASSISTANT_MESSAGE_ID, latestAssistantMessageId),
-            )
+            try {
+                ContextCompat.startForegroundService(
+                    context,
+                    intent(context, ACTION_START, sessionId, mode, hostId, generation)
+                        .putExtra(EXTRA_ASSISTANT_MESSAGE_ID, latestAssistantMessageId),
+                )
+            } catch (ex: IllegalStateException) {
+                // Android refuses foreground service starts while the app is in the background.
+                MobileDiagnostics.warn("RemoteTask", "foreground_start_refused", ex)
+            }
         }
 
         fun stop(context: Context, sessionId: String, mode: CodingRemoteMode, hostId: String?, generation: Long) {
             if (!(context.applicationContext as MyCodexApplication).deviceSelection.isCurrent(hostId, generation)) return
-            context.startService(intent(context, ACTION_STOP, sessionId, mode, hostId, generation))
+            try {
+                context.startService(intent(context, ACTION_STOP, sessionId, mode, hostId, generation))
+            } catch (ex: IllegalStateException) {
+                // A background app cannot start services; a stop request is moot if the service is not running.
+                MobileDiagnostics.warn("RemoteTask", "stop_request_refused", ex)
+            }
         }
 
         private fun intent(context: Context, action: String, sessionId: String, mode: CodingRemoteMode, hostId: String?, generation: Long): Intent {

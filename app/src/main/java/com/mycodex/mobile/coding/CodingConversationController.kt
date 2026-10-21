@@ -311,7 +311,8 @@ class CodingConversationController(
             errorCode = null,
         )
 
-        val anchor = historyRebuildAnchorId
+        // A refresh while the reader is up in the history rebuilds around what they are reading.
+        val anchor = historyRebuildAnchorId ?: readingAnchorId.takeUnless { readerAtBottom }
         var result = repository.loadMessagePage(sessionId, anchorMessageId = anchor)
         if (anchor != null && result.state == CodingLoadState.Loaded && !result.anchorFound) {
             result = repository.loadMessagePage(sessionId)
@@ -400,8 +401,13 @@ class CodingConversationController(
             mutableState.value = mutableState.value.copy(loading = false, loadingOlder = false, loadingNewer = false, errorCode = result.errorCode, needsRetryLatest = direction == PageDirection.Latest)
             return
         }
-        olderCursor = result.olderCursor
-        newerCursor = result.newerCursor
+        // An older page says nothing about the tail and a newer page nothing about the head,
+        // so each direction only updates the boundary it loaded.
+        val updatesHead = direction != PageDirection.Newer
+        val updatesTail = direction != PageDirection.Older
+        if (updatesHead) olderCursor = result.olderCursor
+        if (updatesTail) newerCursor = result.newerCursor
+        val previous = mutableState.value
         val viewportRestore = if (restoreBoundaryFocus && boundaryMessageId != null) {
             CodingPagingViewportRestore(
                 messageId = boundaryMessageId,
@@ -426,13 +432,13 @@ class CodingConversationController(
             loadingOlder = false,
             loadingNewer = false,
             generating = result.generating ?: mutableState.value.generating,
-            hasOlder = result.hasOlder,
-            hasNewer = result.hasNewer,
-            tailConnected = result.tailConnected,
-            latestAssistantMessageId = result.latestAssistantMessageId,
+            hasOlder = if (updatesHead) result.hasOlder else previous.hasOlder,
+            hasNewer = if (updatesTail) result.hasNewer else previous.hasNewer,
+            tailConnected = if (updatesTail) result.tailConnected else previous.tailConnected,
+            latestAssistantMessageId = if (updatesTail) result.latestAssistantMessageId else previous.latestAssistantMessageId,
             pagingSupported = result.capabilityState == RemoteHostCapabilityState.Supported,
             legacyLimited = result.capabilityState == RemoteHostCapabilityState.Legacy,
-            hasNewMessagesAwayFromBottom = !result.tailConnected,
+            hasNewMessagesAwayFromBottom = if (updatesTail) !result.tailConnected else previous.hasNewMessagesAwayFromBottom,
             pendingPagingViewportRestore = viewportRestore,
             pagingViewportRestoreGeneration = viewportRestore?.generation ?: mutableState.value.pagingViewportRestoreGeneration,
             restoreFocusMessageId = null,
