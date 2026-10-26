@@ -60,20 +60,15 @@ data class ManagedDevice(
     val binding: DeviceBinding,
     val createdAtEpochMillis: Long,
     val lastUsedAtEpochMillis: Long?,
-    val pairingState: PairingState,
 ) {
     val id: String
         get() = binding.hostId
     val displayName: String
         get() = binding.hostName?.takeIf { it.isNotBlank() } ?: binding.hostId
-    val platform: DevicePlatform
-        get() = DevicePlatform.Windows
     val relayHost: String
         get() = java.net.URI(binding.relayUrl).host
     val relayPort: Int
         get() = java.net.URI(binding.relayUrl).port.takeIf { it > 0 } ?: 443
-    val useTls: Boolean
-        get() = true
     val certificateSha256: String?
         get() = binding.certificateSha256
     val tenantId: String
@@ -84,26 +79,9 @@ data class ManagedDevice(
         get() = binding.hostName
     val deviceId: String
         get() = binding.deviceId
-
-    fun accessibilityLabel(isCurrent: Boolean): String {
-        return displayName + if (isCurrent) "，当前使用" else "，未选中"
-    }
 }
 
 data class DeviceStoreSnapshot(
     val devices: List<ManagedDevice> = emptyList(),
     val currentDeviceId: String? = null,
 )
-
-enum class DevicePlatform {
-    Windows,
-    MacOS,
-    Linux,
-}
-
-enum class PairingState {
-    Draft,
-    Paired,
-    Connected,
-    Failed,
-}

@@ -4,6 +4,7 @@ import com.mycodex.mobile.security.PairingApproval
 import com.mycodex.mobile.security.PairingApprovalHeader
 import com.mycodex.mobile.security.PairingClaim
 import com.mycodex.mobile.security.PairingClaimHeader
+import com.mycodex.mobile.security.ProtocolValidation
 import com.mycodex.mobile.security.SecureRemoteCrypto
 import com.mycodex.mobile.security.SecureRemoteProtocol
 import com.mycodex.mobile.security.SecureRemoteTranscript
@@ -38,8 +39,8 @@ internal object PairingClaimFactory {
         deriveAgreement: (ByteArray) -> ByteArray,
     ): PendingPairingClaim {
         val packageValue = imported.pairingPackage
-        require(UUID_PATTERN.matches(claimId))
-        require(UUID_PATTERN.matches(identity.deviceId))
+        require(ProtocolValidation.UUID_PATTERN.matches(claimId))
+        require(ProtocolValidation.UUID_PATTERN.matches(identity.deviceId))
         require(clientNonce.size == CLIENT_NONCE_SIZE)
         require(claimNonce.size == GCM_NONCE_SIZE)
         require(appVersion.isNotBlank() && appVersion.length <= MAX_APP_VERSION_LENGTH)
@@ -142,9 +143,6 @@ internal object PairingClaimFactory {
     private const val MAX_APP_VERSION_LENGTH = 64
     private const val PLATFORM_ANDROID = "android"
     private val CLAIM_ENCRYPTION_LABEL = "claim encryption".toByteArray(Charsets.UTF_8)
-    private val UUID_PATTERN = Regex(
-        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    )
 }
 
 class PairingController internal constructor(
@@ -377,7 +375,7 @@ class PairingController internal constructor(
         val decoded = decodeApprovalPlaintext(plaintext)
         val approval = decoded.approval
         require(approval.protocolVersion == SecureRemoteProtocol.VERSION.toLong())
-        require(UUID_PATTERN.matches(approval.bindingId))
+        require(ProtocolValidation.UUID_PATTERN.matches(approval.bindingId))
         require(approval.tenantId == packageValue.tenantId)
         require(approval.hostId == packageValue.hostId)
         require(approval.deviceId == attempt.identity.deviceId)
@@ -507,7 +505,7 @@ class PairingController internal constructor(
     private fun certificateText(imported: ImportedPairingPackage): String? {
         return imported.pairingPackage.embeddedTlsCertificateSha256
             .takeIf { it.isNotEmpty() }
-            ?.let(SecureRemoteProtocol::encodeBase64Url)
+            ?.let(RelayCertificatePinning::sha256Hex)
     }
 
     private fun exactInt(value: Long): Int {
@@ -579,9 +577,6 @@ class PairingController internal constructor(
         const val ERROR_NETWORK = "network_error"
         const val APPROVAL_DOMAIN = "MYCODEX-PAIRING-APPROVAL-V1"
         val APPROVAL_ENCRYPTION_LABEL = "approval encryption".toByteArray(Charsets.UTF_8)
-        val UUID_PATTERN = Regex(
-            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-        )
         val RANDOM = SecureRandom()
     }
 }

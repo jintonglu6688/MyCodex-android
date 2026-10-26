@@ -1,6 +1,9 @@
 package com.mycodex.mobile.devices
 
 import com.mycodex.mobile.security.PairingClaimHeader
+import com.mycodex.mobile.security.ProtocolValidation
+import com.mycodex.mobile.security.ProtocolValidation.requireExactKeys
+import com.mycodex.mobile.security.ProtocolValidation.requireLong
 import com.mycodex.mobile.diagnostics.MobileDiagnostics
 import com.mycodex.mobile.security.SecureRemoteProtocol
 import kotlinx.coroutines.Dispatchers
@@ -10,10 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 open class RelayPairingClient(
@@ -87,16 +87,7 @@ open class RelayPairingClient(
         certificateSha256: String?,
         request: Request,
     ): String {
-        val certificateHex = certificateSha256?.let {
-            val bytes = SecureRemoteProtocol.decodeBase64Url(it)
-            try {
-                require(bytes.size == SHA256_SIZE)
-                bytes.joinToString("") { byte -> "%02x".format(byte) }
-            } finally {
-                bytes.fill(0)
-            }
-        }
-        val client = RelayCertificatePinning.withCertificatePin(baseClient, certificateHex)
+        val client = RelayCertificatePinning.withCertificatePin(baseClient, certificateSha256)
         return withContext(Dispatchers.IO) {
             val path = request.url.encodedPath
             val operation = when {
@@ -107,11 +98,13 @@ open class RelayPairingClient(
             MobileDiagnostics.info("Pairing", "relay_request_start method=${request.method} operation=$operation")
             try {
                 client.newCall(request).execute().use { response ->
-                    val responseText = response.body?.byteStream()?.let(::readLimited).orEmpty()
+                    val responseText = response.body?.byteStream()
+                        ?.let { ProtocolValidation.readLimited(it, MAX_RESPONSE_BYTES) }
+                        .orEmpty()
                     if (!response.isSuccessful) {
                         MobileDiagnostics.warn("Pairing", "relay_request_failed operation=$operation http=${response.code}")
                         throw RelayPairingException(
-                            safeErrorCode(responseText) ?: "http_${response.code}",
+                            ProtocolValidation.safeErrorCode(responseText) ?: "http_${response.code}",
                             "Relay pairing request failed.",
                         )
                     }
@@ -204,14 +197,7 @@ open class RelayPairingClient(
 
     private fun validatedRelayUrl(relayUrl: String): String {
         return try {
-            val uri = URI(relayUrl)
-            require(uri.scheme == "https")
-            require(!uri.host.isNullOrBlank())
-            require(uri.userInfo == null)
-            require(uri.query == null)
-            require(uri.fragment == null)
-            require(uri.path.isNullOrEmpty() || uri.path == "/")
-            require(uri.port == -1 || uri.port in 1..65535)
+            ProtocolValidation.requireRelayUrl(relayUrl)
             relayUrl
         } catch (ex: RuntimeException) {
             throw RelayPairingException(
@@ -222,22 +208,10 @@ open class RelayPairingClient(
         }
     }
 
-    private fun requireExactKeys(value: JSONObject, expected: Set<String>) {
-        require(value.keys().asSequence().toSet() == expected)
-    }
-
     private fun requireString(value: JSONObject, key: String): String {
         return (value.get(key) as? String)
             ?.takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("Expected a non-empty string")
-    }
-
-    private fun requireLong(value: JSONObject, key: String): Long {
-        val number = value.get(key) as? Number
-            ?: throw IllegalArgumentException("Expected a number")
-        val result = number.toLong()
-        require(number.toString() == result.toString())
-        return result
     }
 
     private fun requireStatus(value: JSONObject, key: String): String {
@@ -245,7 +219,7 @@ open class RelayPairingClient(
     }
 
     private fun requireSafeId(value: String): String {
-        require(UUID_PATTERN.matches(value))
+        require(ProtocolValidation.UUID_PATTERN.matches(value))
         return value
     }
 
@@ -274,35 +248,8 @@ open class RelayPairingClient(
         }
     }
 
-    private fun safeErrorCode(responseText: String): String? {
-        return runCatching {
-            val code = JSONObject(responseText).get("code") as? String
-            code?.takeIf { SAFE_ERROR_CODE.matches(it) }
-        }.getOrNull()
-    }
-
-    private fun readLimited(input: InputStream): String {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(4 * 1024)
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) {
-                break
-            }
-            if (output.size() + read > MAX_RESPONSE_BYTES) {
-                throw RelayPairingException(
-                    "invalid_response",
-                    "Relay pairing response exceeded the allowed size.",
-                )
-            }
-            output.write(buffer, 0, read)
-        }
-        return output.toByteArray().toString(Charsets.UTF_8)
-    }
-
     private companion object {
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
-        const val SHA256_SIZE = 32
         const val GCM_NONCE_SIZE = 12
         const val GCM_TAG_SIZE = 16
         const val CLAIM_ACCESS_TOKEN_SIZE = 32
@@ -319,10 +266,6 @@ open class RelayPairingClient(
             "cancelled",
             "consumed",
         )
-        val UUID_PATTERN = Regex(
-            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-        )
-        val SAFE_ERROR_CODE = Regex("[a-z0-9_]{1,64}")
         val CREATED_KEYS = setOf("claimId", "claimAccessToken", "status", "expiresAt")
         val STATUS_KEYS = setOf(
             "claimId",

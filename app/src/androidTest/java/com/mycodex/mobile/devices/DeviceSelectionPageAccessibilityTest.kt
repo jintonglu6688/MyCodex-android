@@ -45,7 +45,7 @@ class DeviceSelectionPageAccessibilityTest {
                         currentHostId = "a", connected = true, targetHostId = "a", statusText = status,
                     ),
                     onConnect = { connects += 1 }, onCancelSwitch = {}, onOpenSettings = {},
-                    onPairDevice = {}, onDelete = {}, contentPadding = PaddingValues(),
+                    onDelete = {}, contentPadding = PaddingValues(),
                 )
             }
         }
@@ -80,7 +80,7 @@ class DeviceSelectionPageAccessibilityTest {
                                 connects += 1
                                 state = state.copy(switching = true, targetHostId = "b", statusText = "正在检查并连接。")
                             },
-                            onCancelSwitch = { cancels += 1 }, onOpenSettings = {}, onPairDevice = {}, onDelete = {},
+                            onCancelSwitch = { cancels += 1 }, onOpenSettings = {}, onDelete = {},
                             contentPadding = PaddingValues(),
                         )
                     }
@@ -180,6 +180,6 @@ class DeviceSelectionPageAccessibilityTest {
             deviceSigningPublicKey = "device-signing", deviceAgreementPublicKey = "device-agreement",
             hostKeyVersion = 1, deviceKeyVersion = 1, bindingVersion = 1,
         ),
-        createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null, pairingState = PairingState.Paired,
+        createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null,
     )
 }

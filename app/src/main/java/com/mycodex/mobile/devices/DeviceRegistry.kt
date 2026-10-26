@@ -7,7 +7,6 @@ class DeviceRegistry(private val snapshot: DeviceStoreSnapshot) {
             binding = binding,
             createdAtEpochMillis = existing?.createdAtEpochMillis ?: nowEpochMillis,
             lastUsedAtEpochMillis = nowEpochMillis,
-            pairingState = PairingState.Paired,
         )
         val devices = snapshot.devices
             .filterNot { it.id == device.id }
@@ -37,23 +36,6 @@ class DeviceRegistry(private val snapshot: DeviceStoreSnapshot) {
     fun removeDevice(deviceId: String): DeviceStoreSnapshot {
         val devices = snapshot.devices.filterNot { it.id == deviceId }
         return DeviceStoreSnapshot(devices, currentDeviceIdIn(devices))
-    }
-
-    fun markConnected(deviceId: String, nowEpochMillis: Long): DeviceStoreSnapshot {
-        val devices = snapshot.devices.map { device ->
-            if (device.id == deviceId) {
-                device.copy(
-                    pairingState = PairingState.Connected,
-                    lastUsedAtEpochMillis = nowEpochMillis,
-                )
-            } else {
-                device
-            }
-        }
-        return snapshot.copy(
-            devices = devices.sortedByDescending { it.lastUsedAtEpochMillis ?: it.createdAtEpochMillis },
-            currentDeviceId = currentDeviceIdIn(devices),
-        )
     }
 
     private fun currentDeviceIdIn(devices: List<ManagedDevice>): String? {

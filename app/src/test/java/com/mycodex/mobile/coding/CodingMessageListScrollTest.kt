@@ -26,8 +26,8 @@ class CodingMessageListScrollTest {
 
     @Test
     fun shouldFollowNewMessagesOnlyWhenAlreadyAtBottom() {
-        assertEquals(true, shouldAutoFollowNewMessages(lastVisibleIndex = 4, totalItems = 5))
-        assertEquals(false, shouldAutoFollowNewMessages(lastVisibleIndex = 1, totalItems = 5))
+        assertEquals(true, isNearMessageListBottom(lastVisibleMessageIndex = 4, messageCount = 5))
+        assertEquals(false, isNearMessageListBottom(lastVisibleMessageIndex = 1, messageCount = 5))
     }
 
     @Test

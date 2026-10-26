@@ -177,7 +177,6 @@ data class WindowsSettingsDraft(
 object WindowsOfficialChoices {
     val reasoningSummaries = listOf(null, "auto", "concise", "detailed", "none")
     val verbosities = listOf(null, "low", "medium", "high")
-    val serviceTiers = listOf(null, "priority")
     val webSearchModes = listOf(null, "disabled", "cached", "indexed", "live")
     val searchContextSizes = listOf(null, "low", "medium", "high")
     val viewImageValues = listOf<Boolean?>(null, true, false)

@@ -3,6 +3,8 @@ package com.mycodex.mobile.relay
 import com.mycodex.mobile.devices.DeviceBinding
 import com.mycodex.mobile.devices.LocalDeviceIdentityStore
 import com.mycodex.mobile.devices.RelayCertificatePinning
+import com.mycodex.mobile.security.ProtocolValidation
+import com.mycodex.mobile.security.ProtocolValidation.requireLong
 import com.mycodex.mobile.security.RelayChallenge
 import com.mycodex.mobile.security.SecureRemoteCrypto
 import com.mycodex.mobile.security.SecureRemoteProtocol
@@ -15,9 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -86,7 +86,7 @@ class RelayAuthenticationClient internal constructor(
         value: JSONObject,
     ): RelayChallenge {
         return try {
-            require(value.keys().asSequence().toSet() == CHALLENGE_KEYS)
+            ProtocolValidation.requireExactKeys(value, CHALLENGE_KEYS)
             val challenge = RelayChallenge(
                 protocolVersion = requireLong(value, "protocolVersion"),
                 relaySigningKeyFingerprint = decodeExact(
@@ -154,7 +154,7 @@ class RelayAuthenticationClient internal constructor(
 
     private fun parseTicket(value: JSONObject): String {
         return try {
-            require(value.keys().asSequence().toSet() == TICKET_KEYS)
+            ProtocolValidation.requireExactKeys(value, TICKET_KEYS)
             val ticket = requireString(value, "ticket")
             decodeExact(ticket, TICKET_SIZE)
             require(value.getString("purpose") == PURPOSE_WEBSOCKET_DEVICE)
@@ -186,10 +186,12 @@ class RelayAuthenticationClient internal constructor(
         return withContext(Dispatchers.IO) {
             try {
                 client.newCall(request).execute().use { response ->
-                    val responseText = response.body?.byteStream()?.let(::readLimited).orEmpty()
+                    val responseText = response.body?.byteStream()
+                        ?.let { ProtocolValidation.readLimited(it, MAX_RESPONSE_BYTES) }
+                        .orEmpty()
                     if (!response.isSuccessful) {
                         throw RelayAuthenticationException(
-                            safeErrorCode(responseText) ?: "http_${response.code}",
+                            ProtocolValidation.safeErrorCode(responseText) ?: "http_${response.code}",
                         )
                     }
                     JSONObject(responseText)
@@ -210,39 +212,10 @@ class RelayAuthenticationClient internal constructor(
             ?: throw IllegalArgumentException("Missing protocol string")
     }
 
-    private fun requireLong(value: JSONObject, key: String): Long {
-        val number = value.get(key) as? Number
-            ?: throw IllegalArgumentException("Missing protocol integer")
-        val result = number.toLong()
-        require(number.toString() == result.toString())
-        return result
-    }
-
     private fun decodeExact(value: String, length: Int): ByteArray {
         return SecureRemoteProtocol.decodeBase64Url(value).also {
             require(it.size == length)
         }
-    }
-
-    private fun safeErrorCode(responseText: String): String? {
-        return runCatching {
-            (JSONObject(responseText).get("code") as? String)
-                ?.takeIf(SAFE_ERROR_CODE::matches)
-        }.getOrNull()
-    }
-
-    private fun readLimited(input: InputStream): String {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(4096)
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) {
-                break
-            }
-            require(output.size() + read <= MAX_RESPONSE_BYTES)
-            output.write(buffer, 0, read)
-        }
-        return output.toByteArray().toString(Charsets.UTF_8)
     }
 
     private companion object {
@@ -258,7 +231,6 @@ class RelayAuthenticationClient internal constructor(
         const val CLOCK_SKEW_TOLERANCE_MILLIS = 5_000L
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val AUTHENTICATION_DEADLINE_MILLIS = 8_000L
-        val SAFE_ERROR_CODE = Regex("[a-z0-9_]{1,64}")
         val CHALLENGE_KEYS = setOf(
             "protocolVersion",
             "relayFingerprint",

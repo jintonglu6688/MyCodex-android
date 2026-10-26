@@ -109,6 +109,6 @@ class DeviceSelectionCoordinatorTest {
             hostId = host, hostName = host, deviceId = "phone", hostSigningPublicKey = "host-sign",
             hostAgreementPublicKey = "host-agree", deviceSigningPublicKey = "phone-sign",
             deviceAgreementPublicKey = "phone-agree", hostKeyVersion = 1, deviceKeyVersion = 1, bindingVersion = 1,
-        ), createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null, pairingState = PairingState.Paired)
+        ), createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null)
     }
 }

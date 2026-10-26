@@ -2,6 +2,7 @@ package com.mycodex.mobile.devices
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import com.mycodex.mobile.security.SecureRemoteCrypto
@@ -18,6 +19,7 @@ import java.security.PrivateKey
 import java.security.interfaces.ECPrivateKey
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,8 +34,20 @@ internal class WrappedAgreementKeyStore(
 
     fun exists(): Boolean = atomicFile.baseFile.isFile
 
+    /** False only for a key that can never load again; Keystore errors propagate so a transient failure never wipes the identity. */
     fun isUsable(deviceId: String, keyVersion: Int): Boolean {
-        return runCatching { loadPublicKey(deviceId, keyVersion) }.isSuccess
+        return try {
+            loadPublicKey(deviceId, keyVersion)
+            true
+        } catch (_: AEADBadTagException) {
+            false
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        } catch (_: IllegalStateException) {
+            false
+        }
     }
 
     fun create(deviceId: String, keyVersion: Int): ByteArray {

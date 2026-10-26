@@ -31,8 +31,6 @@ internal class TestHttpsRelayServer : AutoCloseable {
     val certificate: X509Certificate = loadCertificate()
     private val certificateSha256Bytes = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
     val certificateSha256: String = certificateSha256Bytes.joinToString("") { "%02x".format(it) }
-    val certificateSha256Base64Url: String =
-        SecureRemoteProtocol.encodeBase64Url(certificateSha256Bytes)
     val requests: MutableList<TestRelayRequest> = Collections.synchronizedList(mutableListOf())
     val claimStatusResponses: MutableList<String> = Collections.synchronizedList(mutableListOf())
     @Volatile

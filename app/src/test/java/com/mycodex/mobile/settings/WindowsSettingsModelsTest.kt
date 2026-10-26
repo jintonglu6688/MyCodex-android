@@ -67,13 +67,11 @@ class WindowsSettingsModelsTest {
     fun officialChoices_matchWindowsPolicy() {
         assertEquals(listOf(null, "auto", "concise", "detailed", "none"), WindowsOfficialChoices.reasoningSummaries)
         assertEquals(listOf(null, "low", "medium", "high"), WindowsOfficialChoices.verbosities)
-        assertEquals(listOf(null, "priority"), WindowsOfficialChoices.serviceTiers)
         assertEquals(listOf(null, "disabled", "cached", "indexed", "live"), WindowsOfficialChoices.webSearchModes)
         assertEquals(listOf(null, "low", "medium", "high"), WindowsOfficialChoices.searchContextSizes)
         assertEquals(listOf<Boolean?>(null, true, false), WindowsOfficialChoices.viewImageValues)
         assertEquals(listOf<Long?>(null, 8192L, 16384L, 32768L), WindowsOfficialChoices.toolOutputLimits)
         assertEquals(listOf<Long?>(null, 65536L, 131072L, 262144L), WindowsOfficialChoices.projectDocLimits)
-        assertFalse(WindowsOfficialChoices.serviceTiers.contains("flex"))
     }
 
     @Test

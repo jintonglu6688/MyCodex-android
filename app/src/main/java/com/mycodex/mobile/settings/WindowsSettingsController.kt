@@ -36,10 +36,6 @@ class WindowsSettingsController(
         completionListener = listener
     }
 
-    internal fun clearCompletionListener() {
-        completionListener = null
-    }
-
     internal fun clearTransientState() {
         loadJob?.cancel()
         saveJob?.cancel()

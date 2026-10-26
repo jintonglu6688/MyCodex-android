@@ -6,6 +6,7 @@ import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.annotation.RequiresApi
+import com.mycodex.mobile.security.ProtocolValidation
 import com.mycodex.mobile.security.SecureRemoteCrypto
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -76,10 +77,10 @@ class LocalDeviceIdentityStore(context: Context) {
         }
     }
 
-    private fun loadOrCreate(): LocalDeviceIdentity {
+    private fun loadOrCreate(allowCreate: Boolean = true): LocalDeviceIdentity {
         val keyStore = loadKeyStore()
         val existingDeviceId = preferences.getString(KEY_DEVICE_ID, null)
-            ?.takeIf { DEVICE_ID_PATTERN.matches(it) }
+            ?.takeIf { ProtocolValidation.UUID_PATTERN.matches(it) }
         val existingBackend = selectExistingAgreementKeyBackend(
             apiLevel = Build.VERSION.SDK_INT,
             wrappedExists = wrappedAgreementKeys.exists(),
@@ -89,13 +90,14 @@ class LocalDeviceIdentityStore(context: Context) {
             preferences.getInt(KEY_KEY_VERSION, 0) == CURRENT_KEY_VERSION &&
             keyStore.containsAlias(SIGNING_ALIAS) &&
             existingBackend != null &&
-            agreementKeyIsUsable(keyStore, existingBackend, existingDeviceId)
+            (existingBackend != AgreementKeyBackend.Wrapped || wrappedAgreementKeys.isUsable(existingDeviceId, CURRENT_KEY_VERSION))
         val deviceId: String
         val backend: AgreementKeyBackend
         if (identityIsComplete) {
             deviceId = checkNotNull(existingDeviceId)
             backend = checkNotNull(existingBackend)
         } else {
+            check(allowCreate) { "Secure remote identity is incomplete" }
             resetIdentity(keyStore)
             deviceId = UUID.randomUUID().toString()
             backend = selectNewAgreementKeyBackend(Build.VERSION.SDK_INT)
@@ -138,7 +140,8 @@ class LocalDeviceIdentityStore(context: Context) {
     fun deriveAgreement(peerPublicKey: ByteArray): ByteArray {
         return try {
             synchronized(IDENTITY_LOCK) {
-                val identity = loadOrCreate()
+                // Never create here: a new identity mid-pairing would not match the public key already in the claim.
+                val identity = loadOrCreate(allowCreate = false)
                 if (wrappedAgreementKeys.exists()) {
                     wrappedAgreementKeys.deriveAgreement(
                         identity.deviceId,
@@ -156,22 +159,6 @@ class LocalDeviceIdentityStore(context: Context) {
             throw error
         } catch (error: Exception) {
             throw DeviceIdentityException(DeviceIdentityException.SECURITY_UNAVAILABLE, error)
-        }
-    }
-
-    private fun agreementKeyIsUsable(
-        keyStore: KeyStore,
-        backend: AgreementKeyBackend,
-        deviceId: String,
-    ): Boolean {
-        return when (backend) {
-            AgreementKeyBackend.NativeKeystore -> runCatching {
-                encodePublicKey(keyStore, AGREEMENT_ALIAS)
-            }.isSuccess
-            AgreementKeyBackend.Wrapped -> wrappedAgreementKeys.isUsable(
-                deviceId,
-                CURRENT_KEY_VERSION,
-            )
         }
     }
 
@@ -281,9 +268,6 @@ class LocalDeviceIdentityStore(context: Context) {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_KEY_VERSION = "key_version"
         const val LEGACY_KEY_PUBLIC_KEY = "public_key"
-        val DEVICE_ID_PATTERN = Regex(
-            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-        )
     }
 }
 

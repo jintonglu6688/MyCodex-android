@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -113,6 +114,24 @@ class LocalDeviceIdentityStoreTest {
         assertFalse(first.deviceId == replacement.deviceId)
         assertFalse(first.signingPublicKey == replacement.signingPublicKey)
         assertFalse(first.agreementPublicKey == replacement.agreementPublicKey)
+    }
+
+    @Test
+    fun deriveAgreementNeverCreatesANewIdentity() {
+        resetIdentity()
+        val peer = SecureRemoteCrypto.encodeP256PublicKey(
+            java.security.KeyPairGenerator.getInstance("EC").apply {
+                initialize(java.security.spec.ECGenParameterSpec("secp256r1"))
+            }.generateKeyPair().public,
+        )
+
+        assertThrows(DeviceIdentityException::class.java) {
+            LocalDeviceIdentityStore(context).deriveAgreement(peer)
+        }
+        assertFalse(
+            context.getSharedPreferences("local_device_identity", Context.MODE_PRIVATE)
+                .contains("device_id"),
+        )
     }
 
     @Test

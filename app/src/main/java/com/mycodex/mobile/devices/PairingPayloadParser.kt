@@ -1,6 +1,9 @@
 package com.mycodex.mobile.devices
 
 import com.mycodex.mobile.security.PairingPackage
+import com.mycodex.mobile.security.ProtocolValidation
+import com.mycodex.mobile.security.ProtocolValidation.requireExactKeys
+import com.mycodex.mobile.security.ProtocolValidation.requireLong
 import com.mycodex.mobile.security.SecureRemoteCrypto
 import com.mycodex.mobile.security.SecureRemoteProtocol
 import com.mycodex.mobile.security.SecureRemoteTranscript
@@ -58,7 +61,7 @@ object PairingPayloadParser {
         val relay = requireObject(root, "relay")
         requireExactKeys(relay, RELAY_KEYS)
         val relayUrl = requireString(relay, "url", MAX_URL_LENGTH)
-        requireValidRelayUrl(relayUrl)
+        ProtocolValidation.requireRelayUrl(relayUrl)
         val packageValue = PairingPackage(
             protocolVersion = requireLong(root, "version"),
             relayUrl = relayUrl,
@@ -113,11 +116,6 @@ object PairingPayloadParser {
         return ImportedPairingPackage(packageValue, hostSignature, originalUri)
     }
 
-    private fun requireExactKeys(value: JSONObject, expected: Set<String>) {
-        val actual = value.keys().asSequence().toSet()
-        require(actual == expected)
-    }
-
     private fun requireObject(value: JSONObject, key: String): JSONObject {
         return value.get(key) as? JSONObject
             ?: throw IllegalArgumentException("Expected an object")
@@ -131,17 +129,9 @@ object PairingPayloadParser {
         return result
     }
 
-    private fun requireLong(value: JSONObject, key: String): Long {
-        val number = value.get(key) as? Number
-            ?: throw IllegalArgumentException("Expected a number")
-        val result = number.toLong()
-        require(number.toString() == result.toString())
-        return result
-    }
-
     private fun requireUuid(value: JSONObject, key: String): String {
         val result = requireString(value, key, UUID_LENGTH)
-        require(UUID_PATTERN.matches(result))
+        require(ProtocolValidation.UUID_PATTERN.matches(result))
         return result
     }
 
@@ -158,17 +148,6 @@ object PairingPayloadParser {
             return byteArrayOf()
         }
         return SecureRemoteProtocol.decodeBase64Url(encoded).also { require(it.size == size) }
-    }
-
-    private fun requireValidRelayUrl(value: String) {
-        val uri = URI(value)
-        require(uri.scheme == "https")
-        require(!uri.host.isNullOrBlank())
-        require(uri.userInfo == null)
-        require(uri.query == null)
-        require(uri.fragment == null)
-        require(uri.path.isNullOrEmpty() || uri.path == "/")
-        require(uri.port == -1 || uri.port in 1..65535)
     }
 
     private fun requireJsonDepth(value: String) {
@@ -213,9 +192,6 @@ object PairingPayloadParser {
     private const val RAW_SIGNATURE_SIZE = 64
     private const val MAX_REMAINING_MILLIS = 600_000L
     private const val MAX_JSON_DEPTH = 4
-    private val UUID_PATTERN = Regex(
-        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    )
     private val ROOT_KEYS = setOf(
         "version",
         "relay",

@@ -4,7 +4,6 @@ import okhttp3.OkHttpClient
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
-import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSession
 import javax.net.ssl.X509TrustManager
@@ -20,13 +19,6 @@ internal object RelayCertificatePinning {
         return normalized.takeIf {
             it.length == 64 && it.all { character -> character in '0'..'9' || character in 'a'..'f' }
         }
-    }
-
-    fun configure(connection: HttpsURLConnection, certificateSha256: String) {
-        val expected = decodeSha256(certificateSha256)
-        val trustManager = PinnedTrustManager(expected)
-        connection.sslSocketFactory = sslContext(trustManager).socketFactory
-        connection.hostnameVerifier = { _, session -> peerLeafMatches(session, expected) }
     }
 
     fun withCertificatePin(client: OkHttpClient, certificateSha256: String?): OkHttpClient {

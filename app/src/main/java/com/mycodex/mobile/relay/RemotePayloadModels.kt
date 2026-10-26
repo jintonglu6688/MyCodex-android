@@ -84,8 +84,7 @@ internal class PendingInteractionReplay {
 
 internal object RelayRemoteEnvelopeFactory {
     fun buildWebSocketUrl(device: ManagedDevice): String {
-        val scheme = if (device.useTls) "wss" else "ws"
-        return "$scheme://${device.relayHost}:${device.relayPort}/v1/ws" +
+        return "wss://${device.relayHost}:${device.relayPort}/v1/ws" +
             "?connection=device" +
             "&tenantId=${query(device.tenantId)}" +
             "&hostId=${query(device.hostId)}" +

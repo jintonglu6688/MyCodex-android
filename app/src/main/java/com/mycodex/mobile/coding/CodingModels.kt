@@ -557,14 +557,6 @@ fun isNearMessageListBottom(lastVisibleMessageIndex: Int, messageCount: Int): Bo
     return lastVisibleMessageIndex >= messageCount - 1
 }
 
-fun shouldAutoFollowNewMessages(lastVisibleIndex: Int, totalItems: Int): Boolean {
-    if (totalItems <= 0) {
-        return true
-    }
-
-    return lastVisibleIndex >= totalItems - 1
-}
-
 fun shouldShowMessageListBottomButton(lastVisibleItemIndex: Int?, totalItems: Int): Boolean {
     if (totalItems <= 0 || lastVisibleItemIndex == null) {
         return false

@@ -20,7 +20,7 @@ class RelayPairingClientTest {
             val created = runBlocking {
                 RelayPairingClient().submitClaim(
                     relayUrl = server.baseUrl,
-                    certificateSha256 = server.certificateSha256Base64Url,
+                    certificateSha256 = server.certificateSha256,
                     submission = submission,
                 )
             }
@@ -71,7 +71,7 @@ class RelayPairingClientTest {
             val status = runBlocking {
                 RelayPairingClient().getClaim(
                     relayUrl = server.baseUrl,
-                    certificateSha256 = server.certificateSha256Base64Url,
+                    certificateSha256 = server.certificateSha256,
                     claimId = CLAIM_ID,
                     claimAccessToken = token,
                 )
@@ -94,7 +94,7 @@ class RelayPairingClientTest {
             runBlocking {
                 RelayPairingClient().cancelClaim(
                     relayUrl = server.baseUrl,
-                    certificateSha256 = server.certificateSha256Base64Url,
+                    certificateSha256 = server.certificateSha256,
                     claimId = CLAIM_ID,
                     claimAccessToken = CLAIM_ACCESS_TOKEN,
                 )
@@ -117,7 +117,7 @@ class RelayPairingClientTest {
                 runBlocking {
                     RelayPairingClient().submitClaim(
                         relayUrl = server.baseUrl,
-                        certificateSha256 = SecureRemoteProtocol.encodeBase64Url(mismatch),
+                        certificateSha256 = RelayCertificatePinning.sha256Hex(mismatch),
                         submission = submission(),
                     )
                 }
@@ -136,7 +136,7 @@ class RelayPairingClientTest {
                 runBlocking {
                     RelayPairingClient().submitClaim(
                         server.baseUrl,
-                        server.certificateSha256Base64Url,
+                        server.certificateSha256,
                         submission(),
                     )
                 }
@@ -157,7 +157,7 @@ class RelayPairingClientTest {
                 runBlocking {
                     RelayPairingClient().getClaim(
                         server.baseUrl,
-                        server.certificateSha256Base64Url,
+                        server.certificateSha256,
                         CLAIM_ID,
                         CLAIM_ACCESS_TOKEN,
                     )
@@ -171,7 +171,7 @@ class RelayPairingClientTest {
                 runBlocking {
                     RelayPairingClient().getClaim(
                         server.baseUrl,
-                        server.certificateSha256Base64Url,
+                        server.certificateSha256,
                         CLAIM_ID,
                         CLAIM_ACCESS_TOKEN,
                     )

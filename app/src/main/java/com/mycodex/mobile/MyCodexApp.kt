@@ -197,7 +197,6 @@ internal fun MyCodexApp(
     var windowsSettingsRestoreFocusTarget by navigation::windowsSettingsRestoreFocusTarget
     var settingsOriginDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var restoreDeviceSettingsFocus by rememberSaveable { mutableStateOf(false) }
-    var pairingOriginDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     val deviceManagementListState = rememberLazyListState()
     val codingWorkspaceListState = rememberLazyListState()
     val codingSessionListState = rememberLazyListState()
@@ -297,7 +296,7 @@ internal fun MyCodexApp(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
-        try { saveCurrentWorkspace() } catch (_: Exception) { diagnosticsShareStatus = "草稿保存失败，切换前请重试。" }
+        try { saveCurrentWorkspace() } catch (_: Exception) { codingThreadOperationErrorText = "草稿保存失败，切换前请重试。" }
     }
 
     LaunchedEffect(currentDevice?.hostId) {
@@ -305,7 +304,7 @@ internal fun MyCodexApp(
             .collectLatest {
                 delay(300)
                 if (!application.deviceSelection.state.value.switching && navigation.boundHostId == currentDevice?.hostId) {
-                    try { saveCurrentWorkspace(durable = false) } catch (_: Exception) { diagnosticsShareStatus = "草稿保存失败，切换前请重试。" }
+                    try { saveCurrentWorkspace(durable = false) } catch (_: Exception) { codingThreadOperationErrorText = "草稿保存失败，切换前请重试。" }
                 }
             }
     }
@@ -546,15 +545,8 @@ internal fun MyCodexApp(
         when (activeScreen) {
             AppScreen.AddDevice.name -> {
                 pairingTransient.clearTransientState()
-                if (pairingOriginDeviceId != null) {
-                    detailDeviceId = pairingOriginDeviceId
-                    pairingOriginDeviceId = null
-                    restoreDeviceSettingsFocus = true
-                    activeScreen = AppScreen.DeviceDetail.name
-                } else {
-                    deviceRestoreFocusTarget = AppFocusTarget.DeviceAddButton
-                    activeScreen = AppScreen.DeviceManagement.name
-                }
+                deviceRestoreFocusTarget = AppFocusTarget.DeviceAddButton
+                activeScreen = AppScreen.DeviceManagement.name
             }
             AppScreen.DeviceDetail.name -> {
                 detailDeviceId?.let { deviceRestoreFocusTarget = AppFocusTarget.deviceRow(it) }
@@ -1101,7 +1093,7 @@ internal fun MyCodexApp(
                 listState = deviceManagementListState,
                 restoreFocusTarget = deviceRestoreFocusTarget,
                 onFocusRestored = { deviceRestoreFocusTarget = null },
-                onAddDevice = { pairingOriginDeviceId = null; activeScreen = AppScreen.AddDevice.name },
+                onAddDevice = { activeScreen = AppScreen.AddDevice.name },
                 onOpenDevice = {
                     detailDeviceId = it
                     activeScreen = AppScreen.DeviceDetail.name
@@ -1114,7 +1106,6 @@ internal fun MyCodexApp(
                     val nextSnapshot = DeviceRegistry(deviceSnapshot).addBinding(binding, System.currentTimeMillis())
                         .copy(currentDeviceId = deviceSnapshot.currentDeviceId)
                     saveDeviceSnapshot(nextSnapshot)
-                    pairingOriginDeviceId = null
                     deviceRestoreFocusTarget = AppFocusTarget.deviceRow(binding.hostId)
                     activeScreen = AppScreen.DeviceManagement.name
                 },
@@ -1130,7 +1121,7 @@ internal fun MyCodexApp(
                         listState = deviceManagementListState,
                         restoreFocusTarget = deviceRestoreFocusTarget,
                         onFocusRestored = { deviceRestoreFocusTarget = null },
-                        onAddDevice = { pairingOriginDeviceId = null; activeScreen = AppScreen.AddDevice.name },
+                        onAddDevice = { activeScreen = AppScreen.AddDevice.name },
                         onOpenDevice = {
                             detailDeviceId = it
                             activeScreen = AppScreen.DeviceDetail.name
@@ -1150,7 +1141,6 @@ internal fun MyCodexApp(
                         },
                         restoreSettingsFocus = restoreDeviceSettingsFocus,
                         onSettingsFocusRestored = { restoreDeviceSettingsFocus = false },
-                        onPairDevice = { pairingOriginDeviceId = device.id; activeScreen = AppScreen.AddDevice.name },
                         onDelete = {
                             try {
                                 val oldIds = deviceSnapshot.devices.map { it.id }

@@ -98,39 +98,6 @@ class DeviceRegistryTest {
         assertEquals(0, updated.devices.size)
     }
 
-    @Test
-    fun testingConnectionDoesNotSilentlySelectDeviceWhenSelectionIsMissing() {
-        var snapshot = DeviceRegistry(DeviceStoreSnapshot()).addBinding(
-            binding(hostId = "host_a", hostName = "Office PC"),
-            nowEpochMillis = 1000L,
-        )
-        snapshot = DeviceRegistry(snapshot).addBinding(
-            binding(hostId = "host_b", hostName = "Home PC"),
-            nowEpochMillis = 2000L,
-        ).copy(currentDeviceId = null)
-
-        val updated = DeviceRegistry(snapshot).markConnected("host_b", nowEpochMillis = 3000L)
-
-        assertNull(updated.currentDeviceId)
-        assertEquals(PairingState.Connected, updated.devices.first { it.id == "host_b" }.pairingState)
-    }
-
-    @Test
-    fun testingAnotherDevicePreservesCurrentSelection() {
-        var snapshot = DeviceRegistry(DeviceStoreSnapshot()).addBinding(
-            binding(hostId = "host_a", hostName = "Office PC"),
-            nowEpochMillis = 1000L,
-        )
-        snapshot = DeviceRegistry(snapshot).addBinding(
-            binding(hostId = "host_b", hostName = "Home PC"),
-            nowEpochMillis = 2000L,
-        )
-
-        val updated = DeviceRegistry(snapshot).markConnected("host_b", nowEpochMillis = 3000L)
-
-        assertEquals("host_a", updated.currentDeviceId)
-    }
-
     private fun binding(hostId: String, hostName: String): DeviceBinding {
         return DeviceBinding(
             relayUrl = "https://relay.example.com",

@@ -75,7 +75,6 @@ class DevicePreferencesStoreTest {
             binding = binding(),
             createdAtEpochMillis = 1000L,
             lastUsedAtEpochMillis = 2000L,
-            pairingState = PairingState.Paired,
         )
     }
 

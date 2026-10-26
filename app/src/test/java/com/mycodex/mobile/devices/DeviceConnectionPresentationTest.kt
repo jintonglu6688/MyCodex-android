@@ -9,15 +9,13 @@ import org.junit.Test
 class DeviceConnectionPresentationTest {
     @Test
     fun pairedAndPreviouslyConnectedTargetsStayUncheckedUntilExplicitConnection() {
-        listOf(PairingState.Paired, PairingState.Connected).forEach { pairing ->
-            val presentation = present(device("b", pairing), current = false)
+        val presentation = present(device("b"), current = false)
 
-            assertEquals("非当前设备，已配对，待检查", presentation.summary)
-            assertEquals("检查并连接", presentation.actionLabel)
-            assertTrue(presentation.canConnect)
-            assertFalse(presentation.connected)
-            assertNull(presentation.lastCheckText)
-        }
+        assertEquals("非当前设备，已配对，待检查", presentation.summary)
+        assertEquals("检查并连接", presentation.actionLabel)
+        assertTrue(presentation.canConnect)
+        assertFalse(presentation.connected)
+        assertNull(presentation.lastCheckText)
     }
 
     @Test
@@ -87,7 +85,7 @@ class DeviceConnectionPresentationTest {
     @Test
     fun failedRestorationReportsOldCurrentAsDisconnectedEvenAfterPastSuccess() {
         val presentation = present(
-            device("a", PairingState.Connected),
+            device("a"),
             true,
             DeviceSelectionState(
                 currentHostId = "a", connected = false,
@@ -100,21 +98,6 @@ class DeviceConnectionPresentationTest {
         assertFalse(presentation.connected)
     }
 
-    @Test
-    fun incompletePairingOffersPairingAndNeverConnection() {
-        listOf(PairingState.Draft, PairingState.Failed).forEach { pairing ->
-            val presentation = present(
-                device("b", pairing),
-                true,
-                DeviceSelectionState(currentHostId = "b", connected = true),
-            )
-
-            assertTrue(presentation.needsPairing)
-            assertFalse(presentation.canConnect)
-            assertFalse(presentation.connected)
-            assertEquals(if (pairing == PairingState.Draft) "完成配对" else "重新配对", presentation.actionLabel)
-        }
-    }
 
     @Test
     fun returningFocusUsesHostIdAndAccountsForEmptyListAndDeletedRow() {
@@ -132,7 +115,7 @@ class DeviceConnectionPresentationTest {
         state: DeviceSelectionState = DeviceSelectionState(),
     ) = deviceConnectionPresentation(device, current, state)
 
-    private fun device(hostId: String, pairing: PairingState = PairingState.Paired) = ManagedDevice(
+    private fun device(hostId: String) = ManagedDevice(
         binding = DeviceBinding(
             relayUrl = "https://relay.example.com", relaySigningPublicKey = "relay-key",
             relaySigningKeyFingerprint = "relay-pin", certificateSha256 = null,
@@ -141,6 +124,6 @@ class DeviceConnectionPresentationTest {
             deviceSigningPublicKey = "device-signing", deviceAgreementPublicKey = "device-agreement",
             hostKeyVersion = 1, deviceKeyVersion = 1, bindingVersion = 1,
         ),
-        createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null, pairingState = pairing,
+        createdAtEpochMillis = 1L, lastUsedAtEpochMillis = null,
     )
 }

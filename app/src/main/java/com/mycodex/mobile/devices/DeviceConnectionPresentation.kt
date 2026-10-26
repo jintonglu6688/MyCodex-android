@@ -8,7 +8,6 @@ internal data class DeviceConnectionPresentation(
     val summary: String,
     val actionLabel: String,
     val canConnect: Boolean,
-    val needsPairing: Boolean,
     val connected: Boolean,
     val lastCheckText: String?,
 )
@@ -18,12 +17,10 @@ internal fun deviceConnectionPresentation(
     current: Boolean,
     selectionState: DeviceSelectionState,
 ): DeviceConnectionPresentation {
-    val paired = device.pairingState == PairingState.Paired || device.pairingState == PairingState.Connected
-    val connected = paired && current && selectionState.currentHostId == device.id &&
+    val connected = current && selectionState.currentHostId == device.id &&
         selectionState.connected && !selectionState.switching
     val checking = selectionState.switching && selectionState.targetHostId == device.id
     val check = selectionState.checks[device.id]
-    val pairingText = if (paired) "已配对" else "配对未完成"
     val availability = when {
         checking -> "正在检查并连接"
         connected -> "已连接"
@@ -34,8 +31,6 @@ internal fun deviceConnectionPresentation(
     val actionLabel = when {
         checking -> "正在检查并连接"
         connected -> "重新检查连接"
-        !paired && device.pairingState == PairingState.Draft -> "完成配对"
-        !paired -> "重新配对"
         check?.available == false -> "重试连接"
         else -> "检查并连接"
     }
@@ -47,10 +42,9 @@ internal fun deviceConnectionPresentation(
         "最近检查：$time，$result"
     }
     return DeviceConnectionPresentation(
-        summary = "${if (current) "当前设备" else "非当前设备"}，$pairingText，$availability",
+        summary = "${if (current) "当前设备" else "非当前设备"}，已配对，$availability",
         actionLabel = actionLabel,
-        canConnect = paired && !selectionState.switching,
-        needsPairing = !paired,
+        canConnect = !selectionState.switching,
         connected = connected,
         lastCheckText = lastCheckText,
     )

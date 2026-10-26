@@ -2,7 +2,6 @@ package com.mycodex.mobile.relay
 
 import com.mycodex.mobile.devices.DeviceBinding
 import com.mycodex.mobile.devices.ManagedDevice
-import com.mycodex.mobile.devices.PairingState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -21,7 +20,7 @@ class RelayDeviceConnectionRevocationTest {
             "host-sign", "host-agree", "phone-sign", "phone-agree", 1, 1, 1,
         )
         val manager = RelayDeviceConnectionManager(
-            ManagedDevice(binding, 1L, null, PairingState.Paired),
+            ManagedDevice(binding, 1L, null),
             RelayAuthenticationClient(client, { error("signer must not run") }),
             { error("signer must not run") }, client,
         )

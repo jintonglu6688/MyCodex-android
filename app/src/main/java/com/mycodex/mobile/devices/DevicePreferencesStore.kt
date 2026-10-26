@@ -58,7 +58,8 @@ class DevicePreferencesStore(context: Context) {
                 binding.bindingVersion.toString(),
                 device.createdAtEpochMillis.toString(),
                 device.lastUsedAtEpochMillis?.toString().orEmpty(),
-                encode(device.pairingState.name),
+                // Retired pairing-state column: always "Paired", kept so stored rows stay readable by older builds.
+                encode("Paired"),
             ).joinToString("\t")
         }
 
@@ -91,7 +92,6 @@ class DevicePreferencesStore(context: Context) {
                     binding = binding,
                     createdAtEpochMillis = parts[16].toLong(),
                     lastUsedAtEpochMillis = parts[17].takeIf { it.isNotEmpty() }?.toLong(),
-                    pairingState = PairingState.valueOf(decodeRequired(parts[18])),
                 )
             } catch (_: RuntimeException) {
                 null

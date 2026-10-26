@@ -47,10 +47,6 @@ internal class DeviceSelectionCoordinator<C : Closeable>(
         if (!mutex.tryLock()) return false
         val original = device
         try {
-            if (target.pairingState != PairingState.Paired && target.pairingState != PairingState.Connected) {
-                reportError(target.hostId, "请先完成此设备的配对。")
-                return false
-            }
             try { saveCurrent() } catch (_: Exception) {
                 mutableState.value = state.value.copy(targetHostId = target.hostId, statusText = "保存当前设备草稿失败，未切换设备。")
                 return false

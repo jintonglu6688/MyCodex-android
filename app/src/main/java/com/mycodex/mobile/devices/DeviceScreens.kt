@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import com.mycodex.mobile.MyCodexApplication
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -280,6 +282,8 @@ internal fun AddDevicePageContent(
                 value = pairingUri,
                 onValueChange = onPairingUriChanged,
                 label = { Text("MyCodex 配对 URI") },
+                // The URI carries the invite secret; Password stops keyboards from learning or cloud-syncing it.
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("pairing_uri_input")
@@ -366,7 +370,6 @@ fun DeviceDetailPage(
     onConnect: () -> Unit,
     onCancelSwitch: () -> Unit,
     onOpenSettings: () -> Unit,
-    onPairDevice: () -> Unit,
     onDelete: () -> Unit,
     contentPadding: PaddingValues,
     restoreSettingsFocus: Boolean = false,
@@ -422,8 +425,8 @@ fun DeviceDetailPage(
                 testTag = "device_connect_button",
                 restoreFocus = settingsFocusReady && !presentation.connected,
                 onFocusRestored = onSettingsFocusRestored,
-                onClick = if (presentation.needsPairing) onPairDevice else onConnect,
-                enabled = presentation.canConnect || (presentation.needsPairing && !selectionState.switching),
+                onClick = onConnect,
+                enabled = presentation.canConnect,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
