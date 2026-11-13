@@ -228,7 +228,8 @@ class RelayAuthenticationClient internal constructor(
         const val RAW_SIGNATURE_SIZE = 64
         const val P256_PUBLIC_KEY_SIZE = 65
         const val MAX_LIFETIME_MILLIS = 60_000L
-        const val CLOCK_SKEW_TOLERANCE_MILLIS = 5_000L
+        // Android network time can lag by seconds; the relay remains authoritative for expiry.
+        const val CLOCK_SKEW_TOLERANCE_MILLIS = 30_000L
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val AUTHENTICATION_DEADLINE_MILLIS = 8_000L
         val CHALLENGE_KEYS = setOf(
