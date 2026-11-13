@@ -104,6 +104,7 @@ import com.mycodex.mobile.devices.DeviceManagementPage
 import com.mycodex.mobile.devices.DevicePreferencesStore
 import com.mycodex.mobile.devices.DeviceRegistry
 import com.mycodex.mobile.devices.DeviceStoreSnapshot
+import com.mycodex.mobile.devices.deviceToAutoConnectAfterPairing
 import com.mycodex.mobile.devices.ManagedDevice
 import com.mycodex.mobile.diagnostics.MobileDiagnostics
 import com.mycodex.mobile.devices.PairingPageViewModel
@@ -1105,9 +1106,15 @@ internal fun MyCodexApp(
                 onAddDevice = { binding: DeviceBinding ->
                     val nextSnapshot = DeviceRegistry(deviceSnapshot).addBinding(binding, System.currentTimeMillis())
                         .copy(currentDeviceId = deviceSnapshot.currentDeviceId)
+                    val deviceToConnect = deviceToAutoConnectAfterPairing(
+                        previous = deviceSnapshot,
+                        next = nextSnapshot,
+                        addedHostId = binding.hostId,
+                    )
                     saveDeviceSnapshot(nextSnapshot)
                     deviceRestoreFocusTarget = AppFocusTarget.deviceRow(binding.hostId)
                     activeScreen = AppScreen.DeviceManagement.name
+                    deviceToConnect?.let(::selectDevice)
                 },
                 contentPadding = innerPadding,
                 retainedHolder = pairingTransient,

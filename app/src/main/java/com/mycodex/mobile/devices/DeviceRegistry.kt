@@ -1,5 +1,14 @@
 package com.mycodex.mobile.devices
 
+internal fun deviceToAutoConnectAfterPairing(
+    previous: DeviceStoreSnapshot,
+    next: DeviceStoreSnapshot,
+    addedHostId: String,
+): ManagedDevice? {
+    if (previous.devices.isNotEmpty()) return null
+    return next.devices.firstOrNull { it.id == addedHostId }
+}
+
 class DeviceRegistry(private val snapshot: DeviceStoreSnapshot) {
     fun addBinding(binding: DeviceBinding, nowEpochMillis: Long): DeviceStoreSnapshot {
         val existing = snapshot.devices.firstOrNull { it.id == binding.hostId }

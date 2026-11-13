@@ -98,6 +98,48 @@ class DeviceRegistryTest {
         assertEquals(0, updated.devices.size)
     }
 
+    @Test
+    fun firstPairingAutoConnectsOnlyNewlyAddedDevice() {
+        val previous = DeviceStoreSnapshot()
+        val next = DeviceRegistry(previous).addBinding(
+            binding(hostId = "host_a", hostName = "Office PC"),
+            nowEpochMillis = 1000L,
+        )
+
+        assertEquals(
+            "host_a",
+            deviceToAutoConnectAfterPairing(previous, next, "host_a")?.id,
+        )
+    }
+
+    @Test
+    fun addingAnotherHostDoesNotAutoConnect() {
+        val previous = DeviceRegistry(DeviceStoreSnapshot()).addBinding(
+            binding(hostId = "host_a", hostName = "Office PC"),
+            nowEpochMillis = 1000L,
+        )
+        val next = DeviceRegistry(previous).addBinding(
+            binding(hostId = "host_b", hostName = "Home PC"),
+            nowEpochMillis = 2000L,
+        )
+
+        assertNull(deviceToAutoConnectAfterPairing(previous, next, "host_b"))
+    }
+
+    @Test
+    fun repairingCurrentHostDoesNotAutoConnect() {
+        val previous = DeviceRegistry(DeviceStoreSnapshot()).addBinding(
+            binding(hostId = "host_a", hostName = "Office PC"),
+            nowEpochMillis = 1000L,
+        )
+        val next = DeviceRegistry(previous).addBinding(
+            binding(hostId = "host_a", hostName = "Office PC 2").copy(bindingVersion = 2),
+            nowEpochMillis = 2000L,
+        )
+
+        assertNull(deviceToAutoConnectAfterPairing(previous, next, "host_a"))
+    }
+
     private fun binding(hostId: String, hostName: String): DeviceBinding {
         return DeviceBinding(
             relayUrl = "https://relay.example.com",
