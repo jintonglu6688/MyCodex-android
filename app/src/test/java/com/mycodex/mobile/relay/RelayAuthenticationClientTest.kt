@@ -25,7 +25,7 @@ class RelayAuthenticationClientTest {
             val relayPublic = SecureRemoteCrypto.encodeP256PublicKey(relayKey.public)
             val relayFingerprint = SecureRemoteCrypto.sha256(relayPublic)
             val now = 1_893_456_000_000L
-            val clientNow = now - 250L
+            val clientNow = now - 10_000L
             val challenge = RelayChallenge(
                 protocolVersion = 1,
                 relaySigningKeyFingerprint = relayFingerprint,
@@ -107,7 +107,7 @@ class RelayAuthenticationClientTest {
                 hostId = HOST_ID,
                 deviceId = DEVICE_ID,
                 purpose = "websocket_device",
-                issuedAt = clientNow + 5_001L,
+                issuedAt = clientNow + 30_001L,
                 expiresAt = clientNow + 65_001L,
             )
             server.authChallengeResponse = challengeJson(
